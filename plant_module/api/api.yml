@@ -1,0 +1,355 @@
+openapi: 3.0.4
+info:
+  title: Plant Management Module - OpenAPI 3.0
+  description: |-
+    This API allows communicating with a plant module via a RESTful API, it's meant to be used by the server to coordinate, send user commands and sensor readings 
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+  version: 0.1.0
+tags:
+  - name: device
+    description: Basic device info/actions
+  - name: sensors
+    description: Reading sensor readings
+paths:
+  /:
+    get:
+      tags:
+        - device
+      summary: Test if the device is online
+      responses:
+        '200':
+          description: OK
+  /device:
+    get:
+      tags:
+       - device
+      summary: Get device info
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /device/id:
+    get:
+      tags:
+        - device
+      summary: Get the device's unique ID
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /device/name:
+    get:
+      tags:
+        - device
+      summary: Get the device's name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '404':
+          description: No set device name
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - device
+      summary: Set the device's name
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+              required:
+                - name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /device/address:
+    get:
+      tags:
+        - device
+      summary: Get the device's IP address
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /device/power:
+    get:
+      tags:
+        - device
+      summary: Get the device's power state
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+          - device
+      summary: Turn the device on/off
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                poweredOn:
+                  type: boolean
+              required:
+                - poweredOn
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /device/runningSince:
+    get:
+      tags:
+        - device
+      summary: Get the timestamp when the device started running
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+    
+  /sensors:
+    get:
+      tags:
+        - sensors
+      summary: Get readings from all sensors along with a timestamp
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorReadings'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+  /sensors/temperature:
+    get:
+      tags: 
+        - sensors
+      summary: Get reading from the temperature sensor
+      responses:
+        '200':
+          description: OK. All JSON properties but the temperature are ommited/null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorReadings'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /sensors/light:
+    get:
+      tags: 
+        - sensors
+      summary: Get reading from the light sensor
+      responses:
+        '200':
+          description: OK. All JSON properties but the light value are ommited/null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorReadings'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /sensors/airHumidity:
+    get:
+      tags: 
+        - sensors
+      summary: Get reading from the air humidity sensor
+      responses:
+        '200':
+          description: OK. All JSON properties but the air humidity are ommited/null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorReadings'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /sensors/soilHumidity:
+    get:
+      tags: 
+        - sensors
+      summary: Get reading from the air humidity sensor
+      responses:
+        '200':
+          description: OK. All JSON properties but the air humidity are ommited/null.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensorReadings'
+        '500':
+          description: Internal server error along with an error message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    SensorReadings:
+      type: object
+      properties:
+        temperature:
+          type: number
+          format: float
+          nullable: true
+          description: Temperature reading in Celcius
+        light:
+          type: number
+          nullable: true
+          description: Units and format TBD
+        airHumidity:
+          type: number
+          format: float
+          nullable: true
+          description: Relative humidity in percents (TBD)
+        soilHumidity:
+          type: number
+          format: float
+          nullable: true
+          description: Relative humidity in percents (TBD)
+        timestamp:
+          type: string
+          format: date-time
+          description: |-
+            [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) timestamp of the readings
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Static device ID ([UUIDv4](https://www.rfc-editor.org/rfc/rfc9562.html))
+        address:
+          type: string
+          format: ipv4
+          description: Device IPv4 address
+        name:
+          type: string
+          nullable: true
+          default: null
+          description: Custom device name, null by default
+        runningSince:
+          type: string
+          format: date-time
+          nullable: true
+          description: |-
+            [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html) timestamp of the last power on.
+        poweredOn:
+          type: boolean
+          description: |-
+            The device can't really be powered off completely since it has to respond to power on requests. This is more of a stand-by.
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
