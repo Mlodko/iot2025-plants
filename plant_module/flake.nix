@@ -34,7 +34,7 @@
           ];
           shellHook = ''
             MOSQUITTO_PORT=1883
-            CONFIG_FILE = './mosquitto.conf'
+            CONFIG_FILE='./mosquitto.conf'
             echo "Running automated setup..."
             # Start up mosquitto
               if pgrep -x "mosquitto" > /dev/null; then
