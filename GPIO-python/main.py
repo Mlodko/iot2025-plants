@@ -34,13 +34,13 @@ if __name__ == "__main__":
 
     try:
         threading.Thread(target=sensor_per_second, daemon=True).start()
-        # threading.Thread(target=motor_control, args=(5,), daemon=True).start()
-        # threading.Thread(target=light_control, args=(3,), daemon=True).start()
+        threading.Thread(target=motor_control, args=(5,), daemon=True).start()
+        threading.Thread(target=light_control, args=(3,), daemon=True).start()
 
         while True: # Loop for main thread to stay alive for sensors
-            threading.Thread(target=motor_control, args=(5,), daemon=True).start()
-            time.sleep(10)
-            threading.Thread(target=light_control, args=(3,), daemon=True).start()
+            # threading.Thread(target=motor_control, args=(5,), daemon=True).start()
+            # time.sleep(10)
+            # threading.Thread(target=light_control, args=(3,), daemon=True).start()
             time.sleep(10)
             # SENSOR_SECONDS = 4  # Can be adjusted dynamically
             # RUN = False  # Example to stop sensor thread after some time
