@@ -1,5 +1,3 @@
-import time
-
 device0 = "/sys/bus/iio/devices/iio:device0"
 
 def readFirstLine(filename):
