@@ -1,12 +1,16 @@
 import RPi.GPIO as GPIO
-import time
+from datetime import timedelta
+from asyncio import sleep
 
-def relay_control(seconds: int):
+"""
+Turn on the relay for a specified duration.
+"""
+async def relay_control(duration: timedelta):
     GPIO.setup(12, GPIO.OUT, initial=GPIO.HIGH)  # HIGH = relay off for active-low module
 
     # turn relay ON:
     GPIO.output(12, GPIO.LOW)
-    time.sleep(seconds)
+    await sleep(duration.total_seconds())
 
     # turn relay OFF:
     GPIO.output(12, GPIO.HIGH)

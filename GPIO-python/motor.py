@@ -1,7 +1,11 @@
 import RPi.GPIO as GPIO
-import time
+from datetime import timedelta
+from asyncio import sleep
 
-def run_motor(duration_seconds: int,):
+"""
+Run motor for a specified duration using PWM control.
+"""
+async def run_motor(duration: timedelta):
     PWM_PIN = 18  # GPIO pin connected to the MOSFET gate
     FREQUENCY = 1000  # PWM frequency in Hz
     GPIO.setup(PWM_PIN, GPIO.OUT)
@@ -11,7 +15,7 @@ def run_motor(duration_seconds: int,):
 
     try:
         pwm.ChangeDutyCycle(100)  # Set duty cycle to 100% (full speed)
-        time.sleep(duration_seconds)
+        await sleep(duration.total_seconds())
     finally:
         #stop and clean up
         pwm.ChangeDutyCycle(0)
