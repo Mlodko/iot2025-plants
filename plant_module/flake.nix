@@ -30,7 +30,7 @@
             # System packages here
             pkgs.mosquitto
             pkgs.python313
-            pkgs.pyright
+            pkgs.basedpyright
             pkgs.direnv
           ];
           shellHook = ''
