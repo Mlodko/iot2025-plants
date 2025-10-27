@@ -25,6 +25,7 @@
             pip
             setuptools
             wheel
+            pydantic
           ] ++ [
             # System packages here
             pkgs.mosquitto

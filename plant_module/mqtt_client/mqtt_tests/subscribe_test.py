@@ -6,7 +6,7 @@ async def main():
     print("Stop with Ctrl+C")
     try:
         async with aiomqtt.Client(hostname="localhost", port=1883) as client:
-            await client.subscribe('test')
+            _ = await client.subscribe('test')
             async for message in client.messages:
                 try:
                     # Handle different payload types
