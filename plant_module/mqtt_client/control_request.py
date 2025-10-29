@@ -13,20 +13,24 @@ Command = Literal["on", "off"]
 Scheduled time with a duration or an end time with optional repeat interval
 '''
 class DurationScheduledTime(BaseModel):
-    start_time: datetime # when to start
+    start_time: datetime | Literal["now"] # when to start, now or at a specific time
     end_time: datetime | None # when to end
     duration: timedelta | None # OR how long
     repeat_interval: timedelta | None # AND how often to repeat
-    model_config = { # Either end_time or duration, but not both
+    model_config = {
         "json_schema_extra": {
             "oneOf": [
-                {
+                { # end at a specific end_time
                     "required": ["end_time"],
                     "not": {"required": ["duration"]}
                 },
-                {
+                { # end after a specific duration has passed from start_time
                     "required": ["duration"],
                     "not": {"required": ["end_time"]}
+                },
+                { # run indefinetely from start_time
+                    "required": ["start_time"],
+                    "not": {"required": ["end_time", "duration"]}
                 }
             ]
         }
@@ -36,8 +40,8 @@ class DurationScheduledTime(BaseModel):
 Scheduled time representing an impulse with optional repeat interval
 '''
 class ImpulseScheduledTime(BaseModel):
-    start_time: datetime
-    repeat_interval: timedelta | None
+    start_time: datetime | Literal["now"] # when to start, now or at a specific time
+    repeat_interval: timedelta | None # how often to repeat
 
 '''
 Examples:
@@ -45,22 +49,18 @@ Examples:
     {
         "actuator": "light_bulb",
         "command": "on",
-        "value": 30,
         "scheduled_time": {
             "start_time": "2023-04-01T20:00:00",
-            "end_time": null,
             "duration": "PT30S",
             "repeat_interval": null
         }
     }
-    - Turn the light on at 20:00 for 30 seconds and repeat every 2 hours
+    - Turn the light on now for 30 seconds and repeat every 2 hours
     {
         "actuator": "light_bulb",
         "command": "on",
-        "value": 30,
         "scheduled_time": {
-            "start_time": "2023-04-01T20:00:00",
-            "end_time": null,
+            "start_time": "now",
             "duration": "PT30S",
             "repeat_interval": "PT2H"
         }
@@ -69,14 +69,28 @@ Examples:
     {
         "actuator": "light_bulb",
         "command": "on",
-        "value": 3600,
         "scheduled_time": {
             "start_time": "2023-04-01T20:00:00",
             "end_time": "2023-04-01T21:00:00",
-            "duration": null,
             "repeat_interval": "P1D"
         }
     }
+    - Turn the light on now indefinitely
+    (for immediate, non-repeating actions you can ommit scheduled_time)
+    {
+        "actuator": "light_bulb",
+        "command": "on"
+    }
+    
+    - Turn the light off at 21:00 indefinitely
+    {
+        "actuator": "light_bulb",
+        "command": "off",
+        "scheduled_time": {
+            "start_time": "2023-04-01T21:00:00",
+        }
+    }
+    
     - Turn on the light indefinitely
     {
         "actuator": "light_bulb",
@@ -86,7 +100,6 @@ Examples:
 class LightControlRequest(BaseModel):
     actuator: Literal["light_bulb"]
     command: Command
-    value: int | None # Number of seconds to turn on, None for indefinite or turning off
     scheduled_time: DurationScheduledTime | None # Schedule the action to execute later or in a loop
 
 '''
@@ -113,6 +126,17 @@ Examples:
         "command": "on",
         "scheduled_time": {
             "start_time": "2023-04-01T06:00:00",
+            "repeat_interval": "P1D"
+        }
+    }
+    
+    - Water the plant now and every 24h from now 
+    (for all scheduled actions you have to include scheduled_time and start_time)
+    {
+        "actuator": "water_pump",
+        "command": "on",
+        "scheduled_time": {
+            "start_time": "now",
             "repeat_interval": "P1D"
         }
     }

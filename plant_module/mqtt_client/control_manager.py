@@ -1,10 +1,14 @@
-from typing import override
+from typing import Any, Callable, override
 from aiomqtt import Client
-from mqtt_client.control_request import *
+from plant_module.mqtt_client.control_request import *
 from enum import Enum, StrEnum
 from uuid import UUID
-from mqtt_client.mqtt_dispatcher import MQTTHandler
+from plant_module.mqtt_client.mqtt_dispatcher import MQTTHandler
 import asyncio
+
+import plant_module.mqtt_client.mock_sensors as sensors
+from plant_module.mqtt_client.mock_sensors import WaterPump, LightBulb
+from plant_module.mqtt_client.schedule import Scheduler, ScheduledEvent
 
 class Sensor(StrEnum):
     AIR_QUALITY = "air_quality_sensor"
@@ -13,69 +17,114 @@ class Sensor(StrEnum):
     TEMPERATURE = "temperature_sensor"
     AIR_HUMIDITY = "air_humidity_sensor"
     WATER_LEVEL = "water_level_sensor"
+    
 
-class SensorState:
-    def __init__(self, sensor: Sensor, normal_mode: bool = False, real_time_mode: bool = False) -> None:
-        self.sensor: Sensor = sensor
-        self.normal_mode: bool = normal_mode
-        self.real_time_mode: bool = real_time_mode
-    
-    def enable_normal_mode(self) -> None:
-        self.normal_mode = True
-        
-    def enable_real_time_mode(self) -> None:
-        self.real_time_mode = True
-        
-    def disable_normal_mode(self) -> None:
-        self.normal_mode = False
-        
-    def disable_real_time_mode(self) -> None:
-        self.real_time_mode = False
-        
-class Actuator(StrEnum):
-    LIGHTBULB = "lightbulb"
-    WATER_PUMP = "water_pump"
-    
-class ActuatorState(Enum):
-    OFF = 0,
-    ON = 1
 
 class ControlManager(MQTTHandler):
     def __init__(self, pot_id: UUID, client: Client) -> None:
-        self.sensor_states: dict[Sensor, SensorState] = {sensor: SensorState(sensor) for sensor in Sensor}
-        self.actuator_states: dict[Actuator, ActuatorState] = {actuator: ActuatorState.OFF for actuator in Actuator}
         self.pot_id: UUID = pot_id
         self.client: Client = client
         self.control_topic: str = f"/{self.pot_id}/control"
+        self.SENSOR_TOPIC_PREFIX: str = f"{self.pot_id}/sensors"
+        self.if_sensors_publishing: bool = False
+        self.water_pump: WaterPump = WaterPump()
+        self.water_pump.setup()
+        self.light_bulb: LightBulb = LightBulb()
+        self.light_bulb.setup()
+        self.scheduler: Scheduler = Scheduler()
+        self.scheduler_task = asyncio.create_task(self.scheduler.run())
         
     @override
     async def handle_message(self, topic: str, payload: bytes) -> None:
         request = self._decode_payload(payload)
-        if isinstance(request, SensorControlRequest):
-            self._handle_sensor_request(request)
+        if isinstance(request, LightControlRequest):
+            self._handle_light_control_request(request)
         else:
-            self._handle_actuator_request(request)
+            self._handle_water_pump_control_request(request)
+            
     
-    def _handle_sensor_request(self, request: SensorControlRequest) -> None:
-        pass
-
-        
-    def _handle_actuator_request(self, request: TimedDeviceControlRequest) -> None:
-        pass
-    
-    async def _trigger_actuator(self, actuator: Actuator, activation_duration: float) -> None:
-        if self.actuator_states[actuator] == ActuatorState.ON:
-            print(f"Actuator {actuator.value} is already ON")
-        self.actuator_states[actuator] = ActuatorState.ON
-        print(f"Actuator {actuator.value} started for {activation_duration} seconds")
-        await asyncio.sleep(activation_duration)
-        self.actuator_states[actuator] = ActuatorState.OFF
-        print(f"Actuator {actuator.value} stopped")
-        
-    
-    def _decode_payload(self, payload: bytes) -> ControlRequestType:
+    def _decode_payload(self, payload: bytes) -> ControlRequest:
         import json
         payload_str = payload.decode("utf-8")
         payload_dict = json.loads(payload_str)
-        request: ControlRequestType = TypeAdapter(ControlRequestType).validate_python(payload_dict);
+        request: ControlRequest = TypeAdapter(ControlRequest).validate_python(payload_dict);
         return request
+    
+    async def _schedule_lightbulb(self, request: LightControlRequest) -> None:
+        if not request.scheduled_time:
+            print("[ERROR] Request passed to _schedule_lightbulb without scheduled_time")
+            return
+            
+        st = request.scheduled_time
+    
+        # Helper to resolve "now"
+        def resolve_time(t):
+            from datetime import datetime
+            if t == "now":
+                return datetime.now()
+            return t
+    
+        start_time = resolve_time(st.start_time)
+        repeat_interval = st.repeat_interval
+    
+        if request.command == "on":
+            # ON with duration
+            if st.duration is not None:
+                def on_action():
+                    self.light_bulb.turn_on()
+                def off_action():
+                    self.light_bulb.turn_off()
+                # Schedule ON
+                await self.scheduler.add_event(
+                    ScheduledEvent(start_time, on_action, repeat_interval)
+                )
+                # Schedule OFF after duration
+                await self.scheduler.add_event(
+                    ScheduledEvent(start_time + st.duration, off_action, repeat_interval)
+                )
+            # ON with end_time
+            elif st.end_time is not None:
+                def on_action():
+                    self.light_bulb.turn_on()
+                def off_action():
+                    self.light_bulb.turn_off()
+                await self.scheduler.add_event(
+                    ScheduledEvent(start_time, on_action, repeat_interval)
+                )
+                await self.scheduler.add_event(
+                    ScheduledEvent(resolve_time(st.end_time), off_action, repeat_interval)
+                )
+            # ON indefinitely from start_time
+            else:
+                def on_action():
+                    self.light_bulb.turn_on()
+                await self.scheduler.add_event(
+                    ScheduledEvent(start_time, on_action, repeat_interval)
+                )
+        elif request.command == "off":
+            # OFF at start_time (indefinitely)
+            def off_action():
+                self.light_bulb.turn_off()
+            await self.scheduler.add_event(
+                ScheduledEvent(start_time, off_action, repeat_interval)
+            )
+    
+    def _handle_light_control_request(self, request: LightControlRequest) -> None:
+        if not request.scheduled_time:
+            # Immediate, indefinite/non-repeating action
+            if request.command == "on":
+                self.light_bulb.turn_on()
+            else:
+                self.light_bulb.turn_off()
+        else:
+            # Scheduled or repeating action
+            _ = asyncio.create_task(self._schedule_lightbulb(request))
+            
+    def _handle_water_pump_control_request(self, request: WaterPumpControlRequest) -> None:
+        pass
+        
+    def _start_sensor_publishing(self) -> None:
+        SENSOR_READING_INTERVAL = timedelta(seconds = 2)
+        
+        
+        
