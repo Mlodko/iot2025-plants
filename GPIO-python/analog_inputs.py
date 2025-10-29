@@ -1,3 +1,4 @@
+from enum import IntEnum
 import spidev
 
 # Create SPI object
@@ -11,6 +12,11 @@ def read_channel(channel):
     adc = spi.xfer2([1, (8 + channel) << 4, 0])
     data = ((adc[1] & 3) << 8) + adc[2]
     return data
+
+class Channel(IntEnum):
+    SOIL_MOISTURE_SENSOR = 0
+    GAS_QUALITY_SENSOR = 1
+    LIGHT_SENSOR = 2
 
 # Example: Read from CH0 and CH1
 # try:
