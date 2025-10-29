@@ -1,14 +1,13 @@
 from typing import Any, Callable, override
 from aiomqtt import Client
-from plant_module.mqtt_client.control_request import *
+from .control_request import *
 from enum import Enum, StrEnum
 from uuid import UUID
-from plant_module.mqtt_client.mqtt_dispatcher import MQTTHandler
+from .mqtt_dispatcher import MQTTHandler
 import asyncio
 
-import plant_module.mqtt_client.mock_sensors as sensors
-from plant_module.mqtt_client.mock_sensors import WaterPump, LightBulb
-from plant_module.mqtt_client.schedule import Scheduler, ScheduledEvent
+from .mock_sensors import WaterPump, LightBulb
+from .schedule import Scheduler, ScheduledEvent
 
 class Sensor(StrEnum):
     AIR_QUALITY = "air_quality_sensor"

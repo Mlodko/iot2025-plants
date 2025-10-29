@@ -1,8 +1,8 @@
 from uuid import UUID
 from aiomqtt.client import Client
-from plant_module.mqtt_client.control_manager import Sensor
-import plant_module.mqtt_client.mock_sensors as sensors
-from plant_module.mqtt_client.sensor_reading import SensorReading
+from .control_manager import Sensor
+from . import mock_sensors as sensors
+from .sensor_reading import SensorReading
 from datetime import datetime, timedelta
 import asyncio
 
