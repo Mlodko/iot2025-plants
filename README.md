@@ -1,8 +1,13 @@
 # iot2025-plants
 
+Bibloteki:
+```bash
+pip install fastapi uvicorn pydantic
+```
+
 Uruchomienie
 ```bash
-'uvicorn main:app --reload'
+uvicorn main:app --reload
 ```
 
 Uruchomienie strony w przeglądarce
