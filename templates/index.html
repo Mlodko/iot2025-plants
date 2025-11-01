@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Konfiguracja IoT Roślinki</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7f5;
+      color: #3e3e3e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    h2 {
+      color: #4CAF50;
+    }
+    form {
+      background: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 320px;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      margin: 8px 0;
+      padding: 10px;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: 0.3s;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <h2>🌱 Skonfiguruj połączenie Wi-Fi</h2>
+  <form method="POST" action="/connect">
+    <input type="text" name="ssid" placeholder="SSID sieci Wi-Fi" required>
+    <input type="password" name="password" placeholder="Hasło Wi-Fi" required>
+    <input type="text" name="token" placeholder="Opcjonalny kod urządzenia">
+    <button type="submit">Zapisz i połącz</button>
+  </form>
+</body>
+</html>
