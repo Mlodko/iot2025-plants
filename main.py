@@ -17,19 +17,13 @@ async def index(request: Request):
 
 
 @app.post("/connect")
-async def connect_wifi(data: dict):
-    ssid = data.get("ssid")
-    password = data.get("password")
-
-    # Zapisz dane do loga (opcjonalnie)
-    with open("/home/pi/captive_portal/last_wifi.txt", "w") as f:
-        f.write(f"{ssid}:{password}\n")
-
-    # Uruchom skrypt NetworkManager
+async def connect_wifi(
+    ssid: str = Form(...),
+    password: str = Form(...),
+    token: str = Form(None)
+):
     subprocess.Popen(["/home/pi/captive_portal/switch_to_client.sh", ssid, password])
-
-    return {"message": "Zapisano konfigurację. Doniczka łączy się z Wi-Fi 🌱"}
-
+    return {"message": f"Zapisano konfigurację Wi-Fi dla {ssid}"}
 
 @app.get("/success", response_class=HTMLResponse)
 async def success(request: Request):
@@ -43,4 +37,5 @@ async def success(request: Request):
 @app.get("/{path:path}", response_class=HTMLResponse)
 async def catch_all(path: str):
     return RedirectResponse(url="/")
+
 
