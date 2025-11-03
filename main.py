@@ -17,21 +17,18 @@ async def index(request: Request):
 
 
 @app.post("/connect")
-async def connect(request: Request, ssid: str = Form(...), password: str = Form(...), token: str = Form(None)):
-    """
-    Odbiera dane z formularza, zapisuje konfigurację i odpala tryb klienta.
-    """
-    data = {"ssid": ssid, "password": password, "token": token}
+async def connect_wifi(data: dict):
+    ssid = data.get("ssid")
+    password = data.get("password")
 
-    # zapis konfiguracji do pliku JSON (symulacja zapisu do EEPROM)
-    with open("wifi_config.json", "w") as f:
-        json.dump(data, f)
+    # Zapisz dane do loga (opcjonalnie)
+    with open("/home/pi/captive_portal/last_wifi.txt", "w") as f:
+        f.write(f"{ssid}:{password}\n")
 
-    # wywołanie skryptu przełączającego w tryb klienta (w tle)
-    subprocess.Popen(["/home/pi/captive_portal/switch_to_client.sh"])
+    # Uruchom skrypt NetworkManager
+    subprocess.Popen(["/home/pi/captive_portal/switch_to_client.sh", ssid, password])
 
-    # przekierowanie do strony sukcesu
-    return RedirectResponse(url="/success", status_code=303)
+    return {"message": "Zapisano konfigurację. Doniczka łączy się z Wi-Fi 🌱"}
 
 
 @app.get("/success", response_class=HTMLResponse)
@@ -46,3 +43,4 @@ async def success(request: Request):
 @app.get("/{path:path}", response_class=HTMLResponse)
 async def catch_all(path: str):
     return RedirectResponse(url="/")
+
