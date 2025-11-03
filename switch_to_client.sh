@@ -1,9 +1,18 @@
 #!/bin/bash
-echo "Przełączanie w tryb klienta Wi-Fi..."
-sudo systemctl stop hostapd
-sudo systemctl stop dnsmasq
-sudo wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf
-sudo dhclient wlan0
-echo "Połączono z siecią."
+SSID="$1"
+PASSWORD="$2"
 
-# uprawnienia nadać chmod +x switch_to_client.sh
+echo "Przełączanie w tryb klienta Wi-Fi za pomocą NetworkManager..."
+
+nmcli connection down "Hotspot" 2>/dev/null
+nmcli connection delete "Hotspot" 2>/dev/null
+
+echo "Łączenie z SSID: $SSID"
+nmcli dev wifi connect "$SSID" password "$PASSWORD" ifname wlan0
+
+if [ $? -eq 0 ]; then
+  echo "Połączono z Wi-Fi: $SSID"
+else
+  echo "Błąd połączenia z Wi-Fi"
+  exit 1
+fi
