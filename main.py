@@ -23,7 +23,7 @@ async def connect_wifi(
     token: str = Form(None)
 ):
     subprocess.Popen(["/home/pi/captive_portal/switch_to_client.sh", ssid, password])
-    return {"message": f"Zapisano konfigurację Wi-Fi dla {ssid}"}
+    return RedirectResponse(url="/success", status_code=303)
 
 @app.get("/success", response_class=HTMLResponse)
 async def success(request: Request):
@@ -37,5 +37,6 @@ async def success(request: Request):
 @app.get("/{path:path}", response_class=HTMLResponse)
 async def catch_all(path: str):
     return RedirectResponse(url="/")
+
 
 
