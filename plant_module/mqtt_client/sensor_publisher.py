@@ -1,3 +1,4 @@
+import argparse
 from uuid import UUID
 from aiomqtt.client import Client
 from .control_manager import Sensor
@@ -56,10 +57,32 @@ if __name__ == "__main__":
     import uuid
     import asyncio
     from aiomqtt import Client
+    import sys
+    from argparse import ArgumentParser
 
     async def main():
-        client = Client(hostname="localhost", port=1883)
-        publisher = SensorPublisher(client, uuid.uuid4(), timedelta(seconds=2))
+        
+        # CLI argument parsing
+        # --help: Display help message
+        # --hostname <hostname>: Set hostname of MQTT broker (default: localhost)
+        # --port <port>: Set port of MQTT broker (default: 1883)
+        # --interval <interval_seconds>: Set interval (in seconds) between sensor readings (default: 2 seconds)
+        
+        parser = ArgumentParser()
+        _ = parser.add_argument("--hostname", default="localhost", help="Set hostname of MQTT broker (default: localhost)")
+        _ = parser.add_argument("--port", type=int, default=1883, help="Set port of MQTT broker (default: 1883)")
+        _ = parser.add_argument("--interval", type=float, default=2.0, help="Set interval (in seconds) between sensor readings")
+        
+        args = parser.parse_args(sys.argv[1:])
+        
+        hostname = str(args.hostname)
+        port = int(args.port)
+        interval = timedelta(seconds=float(args.interval))
+        
+        
+        client = Client(hostname=hostname, port=port)
+        print(client)
+        publisher = SensorPublisher(client, uuid.uuid4(), interval)
         async with client:
             task = asyncio.create_task(publisher.start())
             await task  # Or, if you want to run other things, you can await asyncio.sleep() or similar
