@@ -1,12 +1,38 @@
 import RPi.GPIO as GPIO
-import time
+import queue
+import threading
 
-def relay_control(seconds: int):
-    GPIO.setup(12, GPIO.OUT, initial=GPIO.HIGH)  # HIGH = relay off for active-low module
+RELAY_PIN = 12
 
-    # turn relay ON:
-    GPIO.output(12, GPIO.LOW)
-    time.sleep(seconds)
+class RelayThread(threading.Thread):
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.cmd_queue = queue.Queue()
+        self.running = True
+        GPIO.setup(RELAY_PIN, GPIO.OUT, initial=GPIO.HIGH)  # HIGH = off (active-low relay)
 
-    # turn relay OFF:
-    GPIO.output(12, GPIO.HIGH)
+    def run(self):
+        while self.running:
+            try:
+                cmd = self.cmd_queue.get(timeout=0.5)
+                if cmd == "on":
+                    GPIO.output(RELAY_PIN, GPIO.LOW)
+                elif cmd == "off":
+                    GPIO.output(RELAY_PIN, GPIO.HIGH)
+                elif cmd == "exit":
+                    break
+            except queue.Empty:
+                continue
+
+        # Cleanup on exit
+        GPIO.output(RELAY_PIN, GPIO.HIGH)
+
+    def turn_on(self):
+        self.cmd_queue.put("on")
+
+    def turn_off(self):
+        self.cmd_queue.put("off")
+
+    def stop(self):
+        self.cmd_queue.put("exit")
+        self.running = False
