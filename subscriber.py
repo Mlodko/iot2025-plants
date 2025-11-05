@@ -143,27 +143,31 @@ def handle_sensor_data(topic, data):
             print(f"Niepoprawna składnia tematu: {topic}")
             return
 
-        plant_id = parts[0]
+        plant_id = parts[0]  # np. UUID urządzenia
         timestamp = data.get("timestamp", datetime.datetime.now().isoformat())
 
         with engine.begin() as conn:
-            # spprawdzenie, czy urządzenie istnieje w bazie
-            device_exists = conn.execute(
-                select(devices.c.device_uuid).where(devices.c.device_uuid == plant_id)
+            # sprawdź, czy urządzenie istnieje (po kolumnie "name")
+            device_row = conn.execute(
+                select(devices.c.id).where(devices.c.name == plant_id)
             ).fetchone()
 
-            if not device_exists:
+            if not device_row:
                 conn.execute(
                     insert(devices).values(
-                        device_uuid=plant_id,
-                        name=f"Device {plant_id[:6]}",
-                        created_at=datetime.datetime.now(),
+                        name=plant_id,
                         last_seen=datetime.datetime.now()
                     )
                 )
                 print(f"[Baza] Dodano nowe urządzenie: {plant_id}")
 
-            # obsługa danych z tematu np. /<id>/sensors lub /<id>/sensors/<sensor>
+                device_row = conn.execute(
+                    select(devices.c.id).where(devices.c.name == plant_id)
+                ).fetchone()
+
+            device_id = device_row.id if device_row else None
+
+            # obsługa tematów np. /<id>/sensors lub /<id>/sensors/<sensor>
             if len(parts) == 3:
                 sensor_type = parts[2]
                 value = data.get(sensor_type)
@@ -171,10 +175,9 @@ def handle_sensor_data(topic, data):
                     print(f"Brak wartości dla sensora {sensor_type}")
                     return
 
-                # sprawdź czy czujnik istnieje
                 sensor_row = conn.execute(
                     select(sensors.c.id).where(
-                        sensors.c.device_id == plant_id,
+                        sensors.c.device_id == device_id,
                         sensors.c.type == sensor_type
                     )
                 ).fetchone()
@@ -182,18 +185,24 @@ def handle_sensor_data(topic, data):
                 if not sensor_row:
                     conn.execute(
                         insert(sensors).values(
-                            device_id=plant_id,
+                            device_id=device_id,
                             type=sensor_type,
                             unit=None
                         )
                     )
                     print(f"[Baza] Dodano nowy czujnik '{sensor_type}' dla urządzenia {plant_id}")
 
-                # zapis odczytu
+                    sensor_row = conn.execute(
+                        select(sensors.c.id).where(
+                            sensors.c.device_id == device_id,
+                            sensors.c.type == sensor_type
+                        )
+                    ).fetchone()
+
                 conn.execute(
                     insert(readings).values(
                         sensor_id=sensor_row.id if sensor_row else None,
-                        timestamp=timestamp,
+                        ts=timestamp,
                         value=value
                     )
                 )
@@ -206,7 +215,7 @@ def handle_sensor_data(topic, data):
 
                     sensor_row = conn.execute(
                         select(sensors.c.id).where(
-                            sensors.c.device_id == plant_id,
+                            sensors.c.device_id == device_id,
                             sensors.c.type == sensor_type
                         )
                     ).fetchone()
@@ -214,17 +223,24 @@ def handle_sensor_data(topic, data):
                     if not sensor_row:
                         conn.execute(
                             insert(sensors).values(
-                                device_id=plant_id,
+                                device_id=device_id,
                                 type=sensor_type,
                                 unit=None
                             )
                         )
                         print(f"[Baza] Dodano nowy czujnik '{sensor_type}' dla urządzenia {plant_id}")
 
+                        sensor_row = conn.execute(
+                            select(sensors.c.id).where(
+                                sensors.c.device_id == device_id,
+                                sensors.c.type == sensor_type
+                            )
+                        ).fetchone()
+
                     conn.execute(
                         insert(readings).values(
                             sensor_id=sensor_row.id if sensor_row else None,
-                            timestamp=timestamp,
+                            ts=timestamp,
                             value=value
                         )
                     )
