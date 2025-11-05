@@ -49,8 +49,13 @@
   </style>
 </head>
 <body>
-  <h2>🌱 Set up a Wi-Fi connection</h2>
-  <form method="POST" action="/connect">
+    <h2>🌱 Set up a Wi-Fi connection</h2>
+    {% if error == "wrongwifi" %}
+      <p style="color:red;">❌ Nie udało się połączyć z podaną siecią Wi-Fi. Sprawdź nazwę i hasło.</p>
+    {% elif error == "timeout" %}
+      <p style="color:red;">⚠️ Przekroczono czas oczekiwania na połączenie.</p>
+    {% endif %}
+    <form method="POST" action="/connect">
     <input type="text" name="ssid" placeholder="Wi-Fi network SSID" required>
     <input type="password" name="password" placeholder="Wi-Fi password" required>
     <input type="text" name="token" placeholder="Optional Device Code">
@@ -58,4 +63,5 @@
   </form>
 </body>
 </html>
+
 
