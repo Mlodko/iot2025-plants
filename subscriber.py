@@ -145,7 +145,7 @@ def handle_sensor_data(topic, data):
 
         plant_id = parts[0]  # np. UUID urządzenia
 
-	timestamp_str = data.get("timestamp")
+        timestamp_str = data.get("timestamp")
         if timestamp_str:
             try:
                 timestamp = datetime.datetime.fromisoformat(timestamp_str)
