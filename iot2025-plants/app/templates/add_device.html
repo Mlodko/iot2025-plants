@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <title>IoT Roślinki - Add Device</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- CSS -->
+  <link href="/static/css/main.css" rel="stylesheet" />
+  <link href="/static/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/static/css/animate.min.css" rel="stylesheet" />
+  <link href="/static/css/paper-dashboard.css" rel="stylesheet" />
+  <!-- Fonts & icons -->
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" crossorigin="anonymous">
+  <link href="https://maxcdn.bootstrapcdn.com/font-awesome/latest/css/font-awesome.min.css" rel="stylesheet">
+  <link href="/static/css/themify-icons.css" rel="stylesheet">
+  <!-- jQuery (jedna kopia) -->
+  <script src="/static/js/jquery.min.js"></script>
+
+  <style>
+    body { background-color:#f4f3ef; }
+    .logo { position:absolute; top:20px; left:25px; display:flex; flex-direction:column; gap:10px; }
+    .logo a { display:flex; align-items:center; gap:8px; color:#5a5449; text-decoration:none; }
+    .back-btn { display:inline-flex; align-items:center; gap:6px; color:#5a5449; background:transparent; border:none; cursor:pointer; padding:4px 6px; transition:color .2s; }
+    .back-btn:hover { color:#8b7d6b; }
+    .main-panel { padding:30px; z-index:10; width:100vw; }
+    .btn-custom { margin-top:20px; border-radius:20px; color:#5a5449; border-color:#5a5449; }
+  </style>
+</head>
+<body>
+
+  <div class="main-panel">
+    <div class="logo">
+      <a href="/devices_ui" class="simple-text" style="font-size:22px">
+        <i class="fas fa-seedling" style="color:#2eff00; font-size:20px;"></i>
+        IOT&nbsp;ROŚLINKI
+      </a>
+      <a class="back-btn" href="/devices_ui">
+        <i class="fas fa-arrow-left"></i> Back
+      </a>
+    </div>
+
+    <div class="container-fluid" style="max-width: 500px; margin-top:50px;">
+      <h4 style="color:#5a5449; margin-bottom:20px;">Add Device</h4>
+      <hr style="border-color:#ddd; margin-bottom:30px;">
+
+      <form id="deviceForm">
+        <div class="form-group">
+          <label style="font-weight:600; color:#5a5449;">Device Name</label>
+          <input type="text" id="deviceName" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label style="font-weight:600; color:#5a5449;">Code</label>
+          <input type="text" id="deviceIP" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-outline-secondary btn-custom">Add Device</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("deviceForm");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById("deviceName").value.trim();
+      const ip   = document.getElementById("deviceIP").value.trim();
+      if (!name || !ip) { alert("Please fill all fields"); return; }
+
+      const payload = { name, ip, mac: null, software_version: null, config_json: {} };
+
+      try {
+        const res = await fetch("/api/devices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          let msg = "Failed to add device.";
+          try { const data = await res.json(); if (data?.detail) msg = data.detail; } catch {}
+          throw new Error(msg);
+        }
+        const newDevice = await res.json();
+        alert("Device added successfully! ID: " + newDevice.id);
+        form.reset();
+        window.location.href = "/devices_ui";
+      } catch (err) {
+        console.error(err);
+        alert("Error: " + err.message);
+      }
+    });
+  });
+  </script>
+
+  <!-- JS (bez drugiej kopii jQuery) -->
+  <script src="/static/js/bootstrap.min.js"></script>
+</body>
+</html>

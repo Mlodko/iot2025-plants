@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <title>IoT Roślinki - Graph</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- CSS -->
+  <link href="/static/css/main.css" rel="stylesheet" />
+  <link href="/static/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/static/css/animate.min.css" rel="stylesheet" />
+  <link href="/static/css/paper-dashboard.css" rel="stylesheet" />
+  <!-- (opcjonalnie) Chartist CSS dla ładniejszych osi/labeli -->
+  <link href="/static/css/chartist.min.css" rel="stylesheet" />
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" crossorigin="anonymous">
+  <link href="/static/css/themify-icons.css" rel="stylesheet">
+
+  <!-- jQuery -->
+  <script src="/static/js/jquery.min.js"></script>
+
+  <style>
+    .sidebar .logo { text-align:center; font-weight:700; font-size:18px; padding:25px 0 15px; border-bottom:1px solid #eee; }
+    .sidebar .logo a { color:#5a5449; text-decoration:none; }
+    .sidebar ul.nav li.active i, .sidebar ul.nav li.active p { color:#F3BB45; }
+    .main-panel { margin-left:220px; padding:30px; }
+    .card { background:#fff; border-radius:6px; margin-bottom:30px; padding:20px; }
+    .card .header h4 { color:#5a5449; }
+    .card .header p { color:#888; margin-bottom:15px; }
+    .ct-chart { height: 300px; }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar" data-background-color="white" data-active-color="warning">
+    <div class="sidebar-wrapper">
+      <div class="logo">
+        <a href="/devices_ui" class="simple-text" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+          <i class="fas fa-seedling" style="color:#2eff00; font-size:20px;"></i>
+          IoT&nbsp;Roślinki
+        </a>
+      </div>
+      <ul class="nav">
+        <li><a href="/devices_ui"><i class="fas fa-leaf"></i><p>Devices</p></a></li>
+        <li><a href="/"><i class="fas fa-tachometer-alt"></i><p>Dashboard</p></a></li>
+        <li class="active"><a href="/graph_ui"><i class="ti-pie-chart"></i><p>Graphs</p></a></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Main Panel -->
+  <div class="main-panel">
+    <nav class="navbar navbar-default" style="margin-bottom:20px">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar bar1"></span>
+            <span class="icon-bar bar2"></span>
+            <span class="icon-bar bar3"></span>
+          </button>
+          <a class="navbar-brand" href="#">Graph</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid">
+
+      <div class="row">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="header">
+              <h4 class="title">Temperature</h4>
+              <p class="category">Realtime temperature reading</p>
+            </div>
+            <div class="content"><div id="tempChart" class="ct-chart ct-major-twelfth"></div></div>
+          </div>
+        </div>
+
+        <div class="col-md-12">
+          <div class="card">
+            <div class="header">
+              <h4 class="title">Humidity</h4>
+              <p class="category">Realtime humidity reading</p>
+            </div>
+            <div class="content"><div id="humChart" class="ct-chart ct-major-twelfth"></div></div>
+          </div>
+        </div>
+
+        <div class="col-md-12">
+          <div class="card">
+            <div class="header">
+              <h4 class="title">Soil Moisture Level</h4>
+              <p class="category">Realtime soil moisture level reading</p>
+            </div>
+            <div class="content"><div id="soilChart" class="ct-chart ct-major-twelfth"></div></div>
+          </div>
+        </div>
+
+        <div class="col-md-12">
+          <div class="card">
+            <div class="header">
+              <h4 class="title">Light Level</h4>
+              <p class="category">Realtime light level reading</p>
+            </div>
+            <div class="content"><div id="lightChart" class="ct-chart ct-major-twelfth"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Libs -->
+  <script src="/static/js/bootstrap.min.js"></script>
+  <script src="/static/js/chartist.min.js"></script>
+  <script src="/static/js/paper-dashboard.js"></script>
+  <script src="/static/js/bootstrap-checkbox-radio.js"></script>
+
+  <!-- App JS -->
+  <script>
+    // --- USTAWIENIA ---
+    const RANGE_HOURS = 24;          // ile godzin wstecz pokazać
+    const REFRESH_MS  = 10000;       // co ile ms odświeżać
+    const MAX_POINTS  = 500;         // maks. ilość punktów na wykres
+
+    // heurystyki do dopasowania typu sensora -> wykres
+    const matchers = {
+      temperature:  (t) => /temp|dht.*temp|temperature/i.test(t),
+      humidity:     (t) => /hum|dht.*hum|humidity/i.test(t),
+      soil:         (t) => /soil|moist/i.test(t),
+      light:        (t) => /light|ldr|lux/i.test(t),
+    };
+
+    function isoHoursAgo(h) {
+      const d = new Date(Date.now() - h*3600*1000);
+      return d.toISOString();
+    }
+
+    function toLocalTimeStr(iso) {
+      return new Date(iso).toLocaleTimeString();
+    }
+
+    function drawLine(chartSelector, values, labels) {
+      const data = { labels, series: [values] };
+      const options = {
+        fullWidth: true,
+        chartPadding: { right: 20 },
+        axisY: { onlyInteger: false },
+        showPoint: false
+      };
+      new Chartist.Line(chartSelector, data, options);
+    }
+
+    // pobiera odczyty jednego sensora
+    async function fetchReadings(sensorId) {
+      const since = isoHoursAgo(RANGE_HOURS);
+      const url = `/api/readings?sensor_id=${sensorId}&since=${encodeURIComponent(since)}&page_size=${MAX_POINTS}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("GET " + url + " -> " + res.status);
+      return res.json(); // lista ReadingRead: {id, sensor_id, ts, value, ...}
+    }
+
+    // pobierz sensory i zwróć mapę {temperature, humidity, soil, light} => sensorId
+    async function pickSensors() {
+      const res = await fetch(`/api/sensors?page_size=500`);
+      if (!res.ok) throw new Error("GET /api/sensors -> " + res.status);
+      const sensors = await res.json();
+
+      const out = { temperature: null, humidity: null, soil: null, light: null };
+      for (const s of sensors) {
+        const t = s.type || "";
+        if (!out.temperature && matchers.temperature(t)) out.temperature = s.id;
+        else if (!out.humidity && matchers.humidity(t)) out.humidity = s.id;
+        else if (!out.soil && matchers.soil(t)) out.soil = s.id;
+        else if (!out.light && matchers.light(t)) out.light = s.id;
+      }
+      return out;
+    }
+
+    async function renderAll() {
+      try {
+        const picks = await pickSensors();
+
+        // dla każdego istniejącego sensora pobierz i narysuj
+        if (picks.temperature) {
+          const rows = await fetchReadings(picks.temperature);
+          const values = rows.map(r => r.value).reverse();
+          const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
+          drawLine('#tempChart', values, labels);
+        }
+
+        if (picks.humidity) {
+          const rows = await fetchReadings(picks.humidity);
+          const values = rows.map(r => r.value).reverse();
+          const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
+          drawLine('#humChart', values, labels);
+        }
+
+        if (picks.soil) {
+          const rows = await fetchReadings(picks.soil);
+          const values = rows.map(r => r.value).reverse();
+          const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
+          drawLine('#soilChart', values, labels);
+        }
+
+        if (picks.light) {
+          const rows = await fetchReadings(picks.light);
+          const values = rows.map(r => r.value).reverse();
+          const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
+          drawLine('#lightChart', values, labels);
+        }
+
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderAll();
+      setInterval(renderAll, REFRESH_MS);
+    });
+  </script>
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    function drawChart(containerSelector, labels, values) {
+      new Chartist.Line(containerSelector, {
+        labels: labels,
+        series: [values]
+      }, {
+        fullWidth: true,
+        chartPadding: { right: 20 },
+        axisY: { onlyInteger: false }
+      });
+    }
+
+    function loadAndRender() {
+      fetch("/api/graphs/latest?points=60")
+        .then(r => r.json())
+        .then(data => {
+          const t = data.temperature || {labels:[], values:[]};
+          const h = data.humidity    || {labels:[], values:[]};
+          const s = data.soil        || {labels:[], values:[]};
+          const l = data.light       || {labels:[], values:[]};
+
+          drawChart("#tempChart",  t.labels, t.values);
+          drawChart("#humChart",   h.labels, h.values);
+          drawChart("#soilChart",  s.labels, s.values);
+          drawChart("#lightChart", l.labels, l.values);
+        })
+        .catch(err => console.error("graphs/latest error", err));
+    }
+
+    loadAndRender();
+    // auto-refresh co 10s
+    setInterval(loadAndRender, 10000);
+  });
+  </script>
+
+</body>
+</html>
