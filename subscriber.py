@@ -144,7 +144,16 @@ def handle_sensor_data(topic, data):
             return
 
         plant_id = parts[0]  # np. UUID urządzenia
-        timestamp = data.get("timestamp", datetime.datetime.now().isoformat())
+
+	timestamp_str = data.get("timestamp")
+        if timestamp_str:
+            try:
+                timestamp = datetime.datetime.fromisoformat(timestamp_str)
+            except Exception:
+                print(f"[WARN] Nie udało się sparsować timestampu: {timestamp_str}, używam bieżącego czasu")
+                timestamp = datetime.datetime.now()
+        else:
+            timestamp = datetime.datetime.now()
 
         with engine.begin() as conn:
             # sprawdź, czy urządzenie istnieje (po kolumnie "name")
