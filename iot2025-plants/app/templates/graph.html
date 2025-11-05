@@ -31,11 +31,21 @@
     .card .header h4 { color:#5a5449; }
     .card .header p { color:#888; margin-bottom:15px; }
     .ct-chart { height: 300px; }
-        .ct-label.ct-horizontal.ct-end {
+    .ct-label.ct-horizontal.ct-end {
         transform: rotate(-45deg);
         transform-origin: 100% 50%;
         white-space: nowrap;
     }
+.filter-btns {
+  margin-top: 10px;
+}
+.filter-btns .btn {
+  margin-right: 5px;
+  transition: all 0.2s;
+}
+.filter-btns .btn.active {
+  color: white !important;
+}
   </style>
 </head>
 <body>
@@ -75,48 +85,85 @@
 
     <div class="container-fluid">
 
-      <div class="row">
-        <div class="col-md-12">
-          <div class="card">
-            <div class="header">
-              <h4 class="title">Temperature</h4>
-              <p class="category">Realtime temperature reading</p>
-            </div>
-            <div class="content"><div id="tempChart" class="ct-chart ct-major-twelfth"></div></div>
-          </div>
-        </div>
+        <div class="row">
 
-        <div class="col-md-12">
-          <div class="card">
-            <div class="header">
-              <h4 class="title">Humidity</h4>
-              <p class="category">Realtime humidity reading</p>
+            <!-- TEMPERATURA -->
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="header">
+                        <h4 class="title">Temperature</h4>
+                        <p class="category">Realtime temperature reading</p>
+                        <div class="filter-btns" data-chart="tempChart">
+                            <button class="btn btn-sm btn-outline-warning" data-hours="4">4h</button>
+                            <button class="btn btn-sm btn-outline-warning" data-hours="12">12h</button>
+                            <button class="btn btn-sm btn-outline-warning active" data-hours="24">24h</button>
+                            <button class="btn btn-sm btn-outline-warning" data-hours="168">7d</button>
+                        </div>
+                    </div>
+                    <div class="content">
+                        <div id="tempChart" class="ct-chart ct-major-twelfth"></div>
+                    </div>
+                </div>
             </div>
-            <div class="content"><div id="humChart" class="ct-chart ct-major-twelfth"></div></div>
-          </div>
-        </div>
 
-        <div class="col-md-12">
-          <div class="card">
-            <div class="header">
-              <h4 class="title">Soil Moisture Level</h4>
-              <p class="category">Realtime soil moisture level reading</p>
+            <!-- WILGOTNOŚĆ -->
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="header">
+                        <h4 class="title">Humidity</h4>
+                        <p class="category">Realtime humidity reading</p>
+                        <div class="filter-btns" data-chart="humChart">
+                            <button class="btn btn-sm btn-outline-info" data-hours="4">4h</button>
+                            <button class="btn btn-sm btn-outline-info" data-hours="12">12h</button>
+                            <button class="btn btn-sm btn-outline-info active" data-hours="24">24h</button>
+                            <button class="btn btn-sm btn-outline-info" data-hours="168">7d</button>
+                        </div>
+                    </div>
+                    <div class="content">
+                        <div id="humChart" class="ct-chart ct-major-twelfth"></div>
+                    </div>
+                </div>
             </div>
-            <div class="content"><div id="soilChart" class="ct-chart ct-major-twelfth"></div></div>
-          </div>
-        </div>
 
-        <div class="col-md-12">
-          <div class="card">
-            <div class="header">
-              <h4 class="title">Light Level</h4>
-              <p class="category">Realtime light level reading</p>
+            <!-- WILGOTNOŚĆ GLEBY -->
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="header">
+                        <h4 class="title">Soil Moisture Level</h4>
+                        <p class="category">Realtime soil moisture reading</p>
+                        <div class="filter-btns" data-chart="soilChart">
+                            <button class="btn btn-sm btn-outline-success" data-hours="4">4h</button>
+                            <button class="btn btn-sm btn-outline-success" data-hours="12">12h</button>
+                            <button class="btn btn-sm btn-outline-success active" data-hours="24">24h</button>
+                            <button class="btn btn-sm btn-outline-success" data-hours="168">7d</button>
+                        </div>
+                    </div>
+                    <div class="content">
+                        <div id="soilChart" class="ct-chart ct-major-twelfth"></div>
+                    </div>
+                </div>
             </div>
-            <div class="content"><div id="lightChart" class="ct-chart ct-major-twelfth"></div></div>
-          </div>
-        </div>
-      </div>
 
+            <!-- ŚWIATŁO -->
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="header">
+                        <h4 class="title">Light Level</h4>
+                        <p class="category">Realtime light level reading</p>
+                        <div class="filter-btns" data-chart="lightChart">
+                            <button class="btn btn-sm btn-outline-primary" data-hours="4">4h</button>
+                            <button class="btn btn-sm btn-outline-primary" data-hours="12">12h</button>
+                            <button class="btn btn-sm btn-outline-primary active" data-hours="24">24h</button>
+                            <button class="btn btn-sm btn-outline-primary" data-hours="168">7d</button>
+                        </div>
+                    </div>
+                    <div class="content">
+                        <div id="lightChart" class="ct-chart ct-major-twelfth"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
   </div>
 
@@ -128,109 +175,190 @@
 
   <!-- App JS -->
   <script>
-    // --- USTAWIENIA ---
-    const RANGE_HOURS = 24;          // ile godzin wstecz pokazać
-    const REFRESH_MS  = 10000;       // co ile ms odświeżać
-    const MAX_POINTS  = 500;         // maks. ilość punktów na wykres
+      // --- USTAWIENIA ---
+      const REFRESH_MS = 10000;       // co ile ms odświeżać
+      const MAX_POINTS = 500;         // maks. ilość punktów na wykres
 
-    // heurystyki do dopasowania typu sensora -> wykres
-    const matchers = {
-      temperature:  (t) => /temp|dht.*temp|temperature/i.test(t),
-      humidity:     (t) => /hum|dht.*hum|humidity/i.test(t),
-      soil:         (t) => /soil|moist/i.test(t),
-      light:        (t) => /light|ldr|lux/i.test(t),
-    };
-
-    function isoHoursAgo(h) {
-      const d = new Date(Date.now() - h*3600*1000);
-      return d.toISOString();
-    }
-
-    function toLocalTimeStr(iso) {
-      return new Date(iso).toLocaleTimeString();
-    }
-
-    function drawLine(chartSelector, values, labels) {
-      const data = { labels, series: [values] };
-      const options = {
-        fullWidth: true,
-        chartPadding: { right: 20 },
-        axisY: { onlyInteger: false },
-        showPoint: false
+      // heurystyki do dopasowania typu sensora -> wykres
+      const matchers = {
+          temperature: (t) => /temp|dht.*temp|temperature/i.test(t),
+          humidity: (t) => /hum|dht.*hum|humidity/i.test(t),
+          soil: (t) => /soil|moist/i.test(t),
+          light: (t) => /light|ldr|lux/i.test(t),
       };
-      new Chartist.Line(chartSelector, data, options);
-    }
 
-    // pobiera odczyty jednego sensora
-    async function fetchReadings(sensorId) {
-      const since = isoHoursAgo(RANGE_HOURS);
-      const url = `/api/readings?sensor_id=${sensorId}&since=${encodeURIComponent(since)}&page_size=${MAX_POINTS}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("GET " + url + " -> " + res.status);
-      return res.json(); // lista ReadingRead: {id, sensor_id, ts, value, ...}
-    }
-
-    // pobierz sensory i zwróć mapę {temperature, humidity, soil, light} => sensorId
-    async function pickSensors() {
-      const res = await fetch(`/api/sensors?page_size=500`);
-      if (!res.ok) throw new Error("GET /api/sensors -> " + res.status);
-      const sensors = await res.json();
-
-      const out = { temperature: null, humidity: null, soil: null, light: null };
-      for (const s of sensors) {
-        const t = s.type || "";
-        if (!out.temperature && matchers.temperature(t)) out.temperature = s.id;
-        else if (!out.humidity && matchers.humidity(t)) out.humidity = s.id;
-        else if (!out.soil && matchers.soil(t)) out.soil = s.id;
-        else if (!out.light && matchers.light(t)) out.light = s.id;
+      // pomocnicze funkcje czasu
+      function isoHoursAgo(h) {
+          const d = new Date(Date.now() - h * 3600 * 1000);
+          return d.toISOString();
       }
-      return out;
-    }
 
-    async function renderAll() {
-      try {
-        const picks = await pickSensors();
-
-        // dla każdego istniejącego sensora pobierz i narysuj
-        if (picks.temperature) {
-          const rows = await fetchReadings(picks.temperature);
-          const values = rows.map(r => r.value).reverse();
-          const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
-          drawLine('#tempChart', values, labels);
-        }
-
-        if (picks.humidity) {
-          const rows = await fetchReadings(picks.humidity);
-          const values = rows.map(r => r.value).reverse();
-          const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
-          drawLine('#humChart', values, labels);
-        }
-
-        if (picks.soil) {
-          const rows = await fetchReadings(picks.soil);
-          const values = rows.map(r => r.value).reverse();
-          const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
-          drawLine('#soilChart', values, labels);
-        }
-
-        if (picks.light) {
-          const rows = await fetchReadings(picks.light);
-          const values = rows.map(r => r.value).reverse();
-          const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
-          drawLine('#lightChart', values, labels);
-        }
-
-      } catch (e) {
-        console.error(e);
+      function toLocalTimeStr(iso) {
+          return new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
       }
-    }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      renderAll();
-      setInterval(renderAll, REFRESH_MS);
-    });
+      // rysowanie wykresu Chartist
+      function drawLine(chartSelector, values, labels) {
+          const data = {labels, series: [values]};
+          const options = {
+              fullWidth: true,
+              chartPadding: {right: 20},
+              axisY: {onlyInteger: false},
+              showPoint: false,
+              axisX: {
+                  labelInterpolationFnc: function (value, index) {
+                      return index % Math.ceil(labels.length / 6) === 0 ? value : null;
+                  }
+              }
+          };
+          new Chartist.Line(chartSelector, data, options);
+      }
+
+      // pobiera odczyty sensora
+      async function fetchReadings(sensorId, hours) {
+          const since = isoHoursAgo(hours);
+          const url = `/api/readings?sensor_id=${sensorId}&since=${encodeURIComponent(since)}&page_size=${MAX_POINTS}`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("GET " + url + " -> " + res.status);
+          return res.json();
+      }
+
+      // wybiera sensory po typach
+      async function pickSensors() {
+          const res = await fetch(`/api/sensors?page_size=500`);
+          if (!res.ok) throw new Error("GET /api/sensors -> " + res.status);
+          const sensors = await res.json();
+
+          const out = {temperature: null, humidity: null, soil: null, light: null};
+          for (const s of sensors) {
+              const t = s.type || "";
+              if (!out.temperature && matchers.temperature(t)) out.temperature = s.id;
+              else if (!out.humidity && matchers.humidity(t)) out.humidity = s.id;
+              else if (!out.soil && matchers.soil(t)) out.soil = s.id;
+              else if (!out.light && matchers.light(t)) out.light = s.id;
+          }
+          return out;
+      }
+
+      // rysuje pojedynczy wykres z danym zakresem czasu
+      async function renderSingle(chartId, hours, sensors) {
+          try {
+              const sensorMap = {
+                  tempChart: sensors.temperature,
+                  humChart: sensors.humidity,
+                  soilChart: sensors.soil,
+                  lightChart: sensors.light
+              };
+              const sensorId = sensorMap[chartId];
+              if (!sensorId) return;
+
+              const rows = await fetchReadings(sensorId, hours);
+              const values = rows.map(r => r.value).reverse();
+              const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
+              drawLine(`#${chartId}`, values, labels);
+          } catch (e) {
+              console.error("renderSingle error", e);
+          }
+      }
+
+      // rysuje wszystkie wykresy (używane przy starcie)
+      async function renderAll(defaultHours = 24) {
+          const sensors = await pickSensors();
+          const charts = ["tempChart", "humChart", "soilChart", "lightChart"];
+          for (const id of charts) {
+              await renderSingle(id, defaultHours, sensors);
+          }
+      }
+
+      // Połączenie WebSocket (domyślnie ws://, jeśli https to wss://)
+      const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${wsProtocol}://${location.host}/ws`);
+
+      ws.onopen = () => console.log("[WS] Connected");
+      ws.onclose = () => console.log("[WS] Disconnected");
+
+      ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log("[WS] Update:", data);
+
+          const {sensor_type, value, ts} = data;
+          const label = new Date(ts).toLocaleTimeString();
+
+          // Aktualizuj wykresy na żywo
+          if (sensor_type.includes("temp")) {
+              appendData("#tempChart", value, label);
+          } else if (sensor_type.includes("hum")) {
+              appendData("#humChart", value, label);
+          } else if (sensor_type.includes("soil")) {
+              appendData("#soilChart", value, label);
+          } else if (sensor_type.includes("light")) {
+              appendData("#lightChart", value, label);
+          }
+      };
+
+      // Bufory danych dla każdego wykresu
+      const chartData = {
+          "#tempChart": {values: [], labels: []},
+          "#humChart": {values: [], labels: []},
+          "#soilChart": {values: [], labels: []},
+          "#lightChart": {values: [], labels: []},
+      };
+
+      // Funkcja pomocnicza do aktualizacji wykresu Chartist
+      function appendData(selector, value, label) {
+          const d = chartData[selector];
+          if (!d) return;
+          d.values.push(value);
+          d.labels.push(label);
+          if (d.values.length > 100) { // ogranicz liczbę punktów
+              d.values.shift();
+              d.labels.shift();
+          }
+          if (d.chart) {
+              d.chart.update({labels: d.labels, series: [d.values]});
+          } else {
+              d.chart = new Chartist.Line(selector, {labels: d.labels, series: [d.values]}, {showPoint: false});
+          }
+      }
+
+      // --- URUCHOMIENIE ---
+      document.addEventListener('DOMContentLoaded', async () => {
+          const sensors = await pickSensors(); // zrób jedno zapytanie o sensory
+
+          // dla każdego zestawu przycisków
+          document.querySelectorAll('.filter-btns').forEach(group => {
+              const chartId = group.dataset.chart;
+
+              group.querySelectorAll('button').forEach(btn => {
+                  btn.addEventListener('click', async e => {
+                      const hours = parseInt(btn.dataset.hours);
+
+                      // zmiana aktywnego przycisku
+                      group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                      btn.classList.add('active');
+
+                      // render tylko tego wykresu
+                      await renderSingle(chartId, hours, sensors);
+                  });
+              });
+          });
+
+          // początkowe rysowanie
+          await renderAll();
+
+          // auto-refresh co REFRESH_MS dla aktualnych zakresów
+          setInterval(async () => {
+              const activeButtons = document.querySelectorAll('.filter-btns button.active');
+              for (const btn of activeButtons) {
+                  const parent = btn.closest('.filter-btns');
+                  const chartId = parent.dataset.chart;
+                  const hours = parseInt(btn.dataset.hours);
+                  await renderSingle(chartId, hours, sensors);
+              }
+          }, REFRESH_MS);
+      });
   </script>
-  <script>
+  <!-- <script>
   document.addEventListener("DOMContentLoaded", () => {
     function drawChart(containerSelector, labels, values) {
       new Chartist.Line(containerSelector, {
@@ -265,7 +393,6 @@
     setInterval(loadAndRender, 10000);
   });
   </script>
-
+-->
 </body>
 </html>
-
