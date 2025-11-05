@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import asyncio
+import json
 import os
 import datetime as dt
 from typing import Any, Optional, List, Dict
@@ -22,7 +24,8 @@ from sqlalchemy import (
     create_engine, Column, Integer, String, DateTime, JSON, Float, ForeignKey, Text, event
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, Session
-
+from fastapi import WebSocket, WebSocketDisconnect
+from typing import Set
 # =========================
 # Settings
 # =========================
@@ -546,14 +549,39 @@ class ReadingsBulkOut(BaseModel):
     inserted: int
 
 
+
+async def broadcast_reading(reading: Reading, db: Session):
+    try:
+        sensor = db.get(Sensor, reading.sensor_id)
+        if not sensor:
+            return
+        payload = {
+            "sensor_type": sensor.type,
+            "sensor_id": sensor.id,
+            "value": reading.value,
+            "ts": reading.ts.isoformat(),
+        }
+        for client in list(active_clients):
+            try:
+                await client.send_text(json.dumps(payload))
+            except Exception:
+                active_clients.remove(client)
+    except Exception as e:
+        print("[WS] Broadcast error:", e)
+
+
 @app.post("/api/readings", response_model=ReadingRead)
-def create_reading(payload: ReadingCreate, db: DB):
+async def create_reading(payload: ReadingCreate, db: DB):
     if not db.get(Sensor, payload.sensor_id):
         raise HTTPException(status_code=400, detail="Sensor does not exist")
     r = Reading(**payload.dict())
     db.add(r)
     db.commit()
     db.refresh(r)
+
+    # 🔥 Wyślij do wszystkich websocketowych klientów
+    asyncio.create_task(broadcast_reading(r, db))
+
     return r
 
 
@@ -691,3 +719,19 @@ def dev_seed(db: DB):
     db.commit()
 
     return {"device_id": d.id, "sensors": [s1.id, s2.id]}
+
+
+# Lista aktywnych klientów websocket
+active_clients: Set[WebSocket] = set()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    active_clients.add(websocket)
+    print("[WS] Client connected:", websocket.client)
+    try:
+        while True:
+            await websocket.receive_text()  # ewentualne wiadomości od klienta (np. ping)
+    except WebSocketDisconnect:
+        print("[WS] Client disconnected:", websocket.client)
+        active_clients.remove(websocket)
