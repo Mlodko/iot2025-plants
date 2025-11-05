@@ -10,7 +10,7 @@ PORT = 1883
 
 TOPICS = [("/#", 0)]
 
-engine = create_engine("sqlite:///server/app/iot.db")
+engine = create_engine("sqlite:////home/pi/server/app/iot.db")
 meta = MetaData()
 meta.reflect(bind=engine)
 
@@ -134,13 +134,11 @@ def on_message(client, userdata, msg):
     else:
         print("Nieznany temat, ignoruję")
 
-
 def handle_sensor_data(topic, data):
     print(f"Otrzymano dane z czujników: {data}")
 
     try:
         parts = topic.strip("/").split("/")
-
         if len(parts) < 2:
             print(f"Niepoprawna składnia tematu: {topic}")
             return
@@ -149,7 +147,23 @@ def handle_sensor_data(topic, data):
         timestamp = data.get("timestamp", datetime.datetime.now().isoformat())
 
         with engine.begin() as conn:
-            # Jeśli temat to np. /<id>/sensors/<sensor_name>
+            # spprawdzenie, czy urządzenie istnieje w bazie
+            device_exists = conn.execute(
+                select(devices.c.device_uuid).where(devices.c.device_uuid == plant_id)
+            ).fetchone()
+
+            if not device_exists:
+                conn.execute(
+                    insert(devices).values(
+                        device_uuid=plant_id,
+                        name=f"Device {plant_id[:6]}",
+                        created_at=datetime.datetime.now(),
+                        last_seen=datetime.datetime.now()
+                    )
+                )
+                print(f"[Baza] Dodano nowe urządzenie: {plant_id}")
+
+            # obsługa danych z tematu np. /<id>/sensors lub /<id>/sensors/<sensor>
             if len(parts) == 3:
                 sensor_type = parts[2]
                 value = data.get(sensor_type)
@@ -157,44 +171,65 @@ def handle_sensor_data(topic, data):
                     print(f"Brak wartości dla sensora {sensor_type}")
                     return
 
-                result = conn.execute(
+                # sprawdź czy czujnik istnieje
+                sensor_row = conn.execute(
                     select(sensors.c.id).where(
                         sensors.c.device_id == plant_id,
                         sensors.c.type == sensor_type
                     )
                 ).fetchone()
 
-                if result:
-                    sensor_id = result.id
-                    conn.execute(insert(readings).values(
-                        sensor_id=sensor_id,
+                if not sensor_row:
+                    conn.execute(
+                        insert(sensors).values(
+                            device_id=plant_id,
+                            type=sensor_type,
+                            unit=None
+                        )
+                    )
+                    print(f"[Baza] Dodano nowy czujnik '{sensor_type}' dla urządzenia {plant_id}")
+
+                # zapis odczytu
+                conn.execute(
+                    insert(readings).values(
+                        sensor_id=sensor_row.id if sensor_row else None,
                         timestamp=timestamp,
                         value=value
-                    ))
-                    print(f"Zapisano odczyt: {sensor_type}={value} dla {plant_id}")
-                else:
-                    print(f"Nie znaleziono czujnika {sensor_type} dla urządzenia {plant_id}")
+                    )
+                )
+                print(f"Zapisano odczyt: {sensor_type}={value} dla {plant_id}")
 
-            # Jeśli temat to np. /<id>/sensors
             elif len(parts) == 2 and parts[1] == "sensors":
                 for sensor_type, value in data.items():
                     if sensor_type == "timestamp":
                         continue
-                    result = conn.execute(
+
+                    sensor_row = conn.execute(
                         select(sensors.c.id).where(
                             sensors.c.device_id == plant_id,
                             sensors.c.type == sensor_type
                         )
                     ).fetchone()
-                    if result:
-                        conn.execute(insert(readings).values(
-                            sensor_id=result.id,
+
+                    if not sensor_row:
+                        conn.execute(
+                            insert(sensors).values(
+                                device_id=plant_id,
+                                type=sensor_type,
+                                unit=None
+                            )
+                        )
+                        print(f"[Baza] Dodano nowy czujnik '{sensor_type}' dla urządzenia {plant_id}")
+
+                    conn.execute(
+                        insert(readings).values(
+                            sensor_id=sensor_row.id if sensor_row else None,
                             timestamp=timestamp,
                             value=value
-                        ))
-                        print(f"Zapisano {sensor_type}={value} dla {plant_id}")
-                    else:
-                        print(f"Nie znaleziono czujnika {sensor_type} dla {plant_id}")
+                        )
+                    )
+                    print(f"Zapisano {sensor_type}={value} dla {plant_id}")
+
             else:
                 print(f"Nieobsługiwany temat: {topic}")
 
