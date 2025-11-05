@@ -18,23 +18,37 @@ async def connect_wifi(
     password: str = Form(...),
     token: str = Form(None)
 ):
-    subprocess.Popen(["/home/pi/captive_portal/switch_to_client.sh", ssid, password])
+    script_path = "/home/pi/captive_portal/switch_to_client.sh"
+    status_file = "/home/pi/captive_portal/wifi_status.json"
 
-    # Poczekaj chwilę, aż skrypt zapisze wynik
-    for _ in range(10):
-        if os.path.exists(STATUS_FILE):
-            with open(STATUS_FILE) as f:
-                try:
-                    status = json.load(f)
-                    if status.get("success"):
-                        return RedirectResponse(url="/success", status_code=303)
-                    elif status.get("message") == "Connection failed":
-                        return RedirectResponse(url="/?error=wrongwifi", status_code=303)
-                except json.JSONDecodeError:
-                    pass
-        time.sleep(1)
+    # usuń stary plik statusu (jeśli istnieje)
+    if os.path.exists(status_file):
+        os.remove(status_file)
 
-    # Jeśli nie udało się uzyskać statusu
+    # uruchom skrypt i CZEKAJ na zakończenie
+    result = subprocess.run(
+        ["sudo", "bash", script_path, ssid, password],
+        capture_output=True,
+        text=True
+    )
+
+    # spróbuj odczytać wynik z pliku JSON, który zapisze skrypt
+    if os.path.exists(status_file):
+        try:
+            with open(status_file) as f:
+                status = json.load(f)
+            if status.get("success"):
+                return RedirectResponse(url="/success", status_code=303)
+            elif status.get("message") == "Connection failed":
+                return RedirectResponse(url="/?error=wrongwifi", status_code=303)
+        except Exception as e:
+            print(f"[ERROR] Nie można odczytać statusu Wi-Fi: {e}")
+            return RedirectResponse(url="/?error=internal", status_code=303)
+
+    # jeśli nie ma pliku — coś poszło nie tak
+    print("[ERROR] Skrypt nie utworzył pliku statusowego.")
+    print(result.stdout)
+    print(result.stderr)
     return RedirectResponse(url="/?error=timeout", status_code=303)
 
 @app.get("/success", response_class=HTMLResponse)
@@ -45,3 +59,4 @@ async def success(request: Request):
 @app.get("/{path:path}", response_class=HTMLResponse)
 async def catch_all(path: str):
     return RedirectResponse(url="/")
+
