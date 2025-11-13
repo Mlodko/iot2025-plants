@@ -72,6 +72,20 @@
     .ct-chart {
       height: 250px;
     }
+    .device-dropdown {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 14px;
+      color: #444;
+      margin-left: 10px;
+    }
+
+    .device-dropdown:focus {
+      outline: none;
+      border-color: #8b7d6b;
+      box-shadow: 0 0 3px rgba(139, 125, 107, 0.3);
+    }
   </style>
 </head>
 
@@ -120,6 +134,11 @@
         <span class="icon-bar bar3"></span>
       </button>
       <a class="navbar-brand" href="#">Graph</a>
+      <div class="navbar-brand dashboard-title">
+        <select id="deviceSelect" class="device-dropdown">
+          <option value="12345">Plant 1</option>
+        </select>
+      </div>
     </div>
   </div>
 </nav>
