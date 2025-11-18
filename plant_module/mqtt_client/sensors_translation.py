@@ -8,6 +8,7 @@ import GPIO_python.distance_sensor as water_level_sensor
 from GPIO_python.motor import MotorThread
 from GPIO_python.relay import RelayThread
 from GPIO_python.analog_inputs import Channel
+import logging
 
 
 
