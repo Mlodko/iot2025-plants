@@ -3,14 +3,12 @@ This module provides higher level abstraction functions for polling sensors and 
 '''
 
 import GPIO_python.air_temp_moisture as atm_sensors
-import GPIO_python.analog_inputs
+import GPIO_python.analog_inputs as analog_inputs
 import GPIO_python.distance_sensor as water_level_sensor
 from GPIO_python.motor import MotorThread
 from GPIO_python.relay import RelayThread
 from GPIO_python.analog_inputs import Channel
-import logging
-from datetime import datetime
-from .sensor_reading import SensorReading
+
 
 
 class SensorsController:

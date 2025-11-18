@@ -2,12 +2,13 @@ import argparse
 import logging
 from uuid import UUID
 from aiomqtt.client import Client
-from control_manager import Sensor
-import mock_sensors
-from sensor_reading import SensorReading
+from .control_manager import Sensor
+from . import mock_sensors
+from .sensor_reading import SensorReading
 from datetime import datetime, timedelta
-from sensors_translation import SensorsController
+from .sensors_translation import SensorsController
 import asyncio
+
 
 MOCK_SENSOR_METHODS = {
     Sensor.AIR_QUALITY: mock_sensors.get_air_quality,

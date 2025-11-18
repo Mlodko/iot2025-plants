@@ -1,14 +1,15 @@
 from asyncio.tasks import Task
 from typing import Any, Callable
 from aiomqtt import Client
-from control_request import *
+from .control_request import *
 from enum import Enum, StrEnum
 from uuid import UUID
-from mqtt_dispatcher import MQTTHandler
+from .mqtt_dispatcher import MQTTHandler
 import asyncio
 
-from mock_sensors import WaterPump, LightBulb
-from schedule import Scheduler, ScheduledEvent
+from .mock_sensors import WaterPump, LightBulb
+from .schedule import Scheduler, ScheduledEvent
+
 
 class Sensor(StrEnum):
     AIR_QUALITY = "air_quality_sensor"
