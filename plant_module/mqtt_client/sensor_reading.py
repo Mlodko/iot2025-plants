@@ -5,7 +5,7 @@ class SensorReading(BaseModel):
     timestamp: datetime = Field(..., description="Timestamp of the reading")
     air_quality_sensor: int | None = Field(None, ge=0, le=1023)
     light_sensor: int | None = Field(None, ge=0, le=1023)
-    temperature_sensor: int | None = Field(None, ge=0, le=20)
+    temperature_sensor: int | None = Field(None, ge=0, le=50)
     air_humidity_sensor: int | None = Field(None, ge=0, le=100)
     soil_moisture_sensor: int | None = Field(None, ge=0, le=1023)
     water_level_sensor: float | None = Field(None, ge=0, le=30)
