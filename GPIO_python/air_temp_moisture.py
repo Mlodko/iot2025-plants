@@ -4,12 +4,10 @@ device0 = "/sys/bus/iio/devices/iio:device0"
 
 def readFirstLine(filename: str) -> tuple[bool, Any]:
     try:
-        f = open(filename,"rt")
-        value =  int(f.readline())
-        f.close()
-        return True, value
+        with open(filename,"rt") as f:
+            value =  int(f.readline())
+            return True, value
     except ValueError:
-        f.close()
         return False,-1
     except OSError:
         return False,0

@@ -1,3 +1,4 @@
+from asyncio.tasks import Task
 from typing import Any, Callable, override
 from aiomqtt import Client
 from .control_request import *
@@ -31,7 +32,7 @@ class ControlManager(MQTTHandler):
         self.light_bulb: LightBulb = LightBulb()
         self.light_bulb.setup()
         self.scheduler: Scheduler = Scheduler()
-        self.scheduler_task = asyncio.create_task(self.scheduler.run())
+        self.scheduler_task: Task[None] = asyncio.create_task(self.scheduler.run())
         
     @override
     async def handle_message(self, topic: str, payload: bytes) -> None:
@@ -57,7 +58,7 @@ class ControlManager(MQTTHandler):
         st = request.scheduled_time
     
         # Helper to resolve "now"
-        def resolve_time(t):
+        def resolve_time(t: datetime | Literal["now"]) -> datetime:
             from datetime import datetime
             if t == "now":
                 return datetime.now()

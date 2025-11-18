@@ -1,31 +1,35 @@
-import RPi.GPIO as GPIO
 import queue
 import threading
 
-RELAY_PIN = 12
+PWM_PIN = 18
+FREQUENCY = 1000  # Hz
 
-class RelayThread(threading.Thread):
+class MotorThread(threading.Thread):
     def __init__(self):
+        import RPi.GPIO as GPIO
         super().__init__(daemon=True)
         self.cmd_queue = queue.Queue()
         self.running = True
-        GPIO.setup(RELAY_PIN, GPIO.OUT, initial=GPIO.HIGH)  # HIGH = off (active-low relay)
+        GPIO.setup(PWM_PIN, GPIO.OUT)
+        self.pwm = GPIO.PWM(PWM_PIN, FREQUENCY)
+        self.pwm.start(0)
 
     def run(self):
         while self.running:
             try:
                 cmd = self.cmd_queue.get(timeout=0.5)
                 if cmd == "on":
-                    GPIO.output(RELAY_PIN, GPIO.LOW)
+                    self.pwm.ChangeDutyCycle(100)
                 elif cmd == "off":
-                    GPIO.output(RELAY_PIN, GPIO.HIGH)
+                    self.pwm.ChangeDutyCycle(0)
                 elif cmd == "exit":
                     break
             except queue.Empty:
                 continue
 
         # Cleanup on exit
-        GPIO.output(RELAY_PIN, GPIO.HIGH)
+        self.pwm.ChangeDutyCycle(0)
+        self.pwm.stop()
 
     def turn_on(self):
         self.cmd_queue.put("on")

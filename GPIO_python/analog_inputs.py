@@ -1,22 +1,25 @@
 from enum import IntEnum
 import spidev
 
-# Create SPI object
-spi = spidev.SpiDev()
-spi.open(0, 0)  # Open bus 0, device 0 (CE0)
-spi.max_speed_hz = 1350000
-
-# Function to read a channel (0–7)
-def read_channel(channel):
-    # MCP3008 protocol: start bit, single-ended bit, channel (3 bits)
-    adc = spi.xfer2([1, (8 + channel) << 4, 0])
-    data = ((adc[1] & 3) << 8) + adc[2]
-    return data
-
 class Channel(IntEnum):
     SOIL_MOISTURE_SENSOR = 0
     GAS_QUALITY_SENSOR = 1
     LIGHT_SENSOR = 2
+    
+class AnalogInputReader:
+    def __init__(self) -> None:
+        # Create SPI object
+        spi = spidev.SpiDev()
+        spi.open(0, 0)  # Open bus 0, device 0 (CE0)
+        spi.max_speed_hz = 1350000
+        self.spi = spi
+        
+    # Function to read a channel (0–7)
+    def read_channel(self, channel):
+        # MCP3008 protocol: start bit, single-ended bit, channel (3 bits)
+        adc = self.spi.xfer2([1, (8 + channel) << 4, 0])
+        data = ((adc[1] & 3) << 8) + adc[2]
+        return data
 
 # Example: Read from CH0 and CH1
 # try:

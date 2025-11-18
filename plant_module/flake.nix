@@ -26,6 +26,8 @@
             setuptools
             wheel
             pydantic
+            rpi-gpio
+            spidev
           ] ++ [
             # System packages here
             pkgs.mosquitto

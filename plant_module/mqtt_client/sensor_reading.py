@@ -21,6 +21,28 @@ class SensorReading(BaseModel):
             ]
         }
     }
+    
+    '''
+    def __init__(
+        self,
+        timestamp: datetime,
+        air_quality_sensor: int | None = None,
+        light_sensor: int | None = None,
+        temperature_sensor: int | None = None,
+        air_humidity_sensor: int | None = None,
+        soil_moisture_sensor: int | None = None,
+        water_level_sensor: float | None = None,
+    ):
+        super().__init__(
+            timestamp=timestamp,
+            air_quality_sensor=air_quality_sensor,
+            light_sensor=light_sensor,
+            temperature_sensor=temperature_sensor,
+            air_humidity_sensor=air_humidity_sensor,
+            soil_moisture_sensor=soil_moisture_sensor,
+            water_level_sensor=water_level_sensor,
+        )
+    '''
 
 if __name__ == "__main__":
     import json
