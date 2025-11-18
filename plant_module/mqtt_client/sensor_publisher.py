@@ -33,6 +33,7 @@ class SensorPublisher:
         else:
             self._if_use_mock_sensors = False
             self.sensors_controller: SensorsController = sensors_controller
+            sensors_controller.setup()
         
     async def _publish_all_readings(self):
         print("Publish tick")
