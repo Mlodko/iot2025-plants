@@ -7,6 +7,9 @@ RELAY_PIN = 12
 class RelayThread(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True)
+        if GPIO.getmode() is None:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
         self.cmd_queue = queue.Queue()
         self.running = True
         GPIO.setup(RELAY_PIN, GPIO.OUT, initial=GPIO.HIGH)  # HIGH = off (active-low relay)

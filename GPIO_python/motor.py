@@ -8,6 +8,9 @@ FREQUENCY = 1000  # Hz
 class MotorThread(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True)
+        if GPIO.getmode() is None:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
         self.cmd_queue = queue.Queue()
         self.running = True
         GPIO.setup(PWM_PIN, GPIO.OUT)
