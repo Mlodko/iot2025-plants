@@ -1,3 +1,4 @@
+import RPi.GPIO as GPIO
 import queue
 import threading
 
@@ -6,7 +7,6 @@ FREQUENCY = 1000  # Hz
 
 class MotorThread(threading.Thread):
     def __init__(self):
-        import RPi.GPIO as GPIO
         super().__init__(daemon=True)
         self.cmd_queue = queue.Queue()
         self.running = True

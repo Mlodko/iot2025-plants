@@ -1,7 +1,7 @@
+import RPi.GPIO as GPIO
 import time
 
 def get_distance() -> float:
-    import RPi.GPIO as GPIO
     # Pin setup
     TRIG = 23
     ECHO = 24

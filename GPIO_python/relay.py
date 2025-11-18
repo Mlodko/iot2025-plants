@@ -1,3 +1,4 @@
+import RPi.GPIO as GPIO
 import queue
 import threading
 
@@ -5,7 +6,6 @@ RELAY_PIN = 12
 
 class RelayThread(threading.Thread):
     def __init__(self):
-        import RPi.GPIO as GPIO
         super().__init__(daemon=True)
         self.cmd_queue = queue.Queue()
         self.running = True

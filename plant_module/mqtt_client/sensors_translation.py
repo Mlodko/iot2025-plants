@@ -2,13 +2,12 @@
 This module provides higher level abstraction functions for polling sensors and controlling actuators.
 '''
 
-from tempfile import tempdir
 import GPIO_python.air_temp_moisture as atm_sensors
-import GPIO_python.analog_inputs as analog_sensors
+import GPIO_python.analog_inputs
 import GPIO_python.distance_sensor as water_level_sensor
 from GPIO_python.motor import MotorThread
 from GPIO_python.relay import RelayThread
-from GPIO_python.analog_inputs import Channel, AnalogInputReader
+from GPIO_python.analog_inputs import Channel
 import logging
 from datetime import datetime
 from .sensor_reading import SensorReading
@@ -18,7 +17,6 @@ class SensorsController:
     def __init__(self):
         self.water_pump: MotorThread = MotorThread()
         self.light_bulb: RelayThread = RelayThread()
-        self.analog_reader: AnalogInputReader = AnalogInputReader()
         self._running: bool = False
         self._water_pump_running: bool = False
         self._light_bulb_running: bool = False
@@ -60,9 +58,9 @@ class SensorsController:
             return None
 
         (temperature, air_humidity) = atm_sensors.read_air_sensor_data()
-        soil_moisture = self.analog_reader.read_channel(Channel.SOIL_MOISTURE_SENSOR)
-        air_quality = self.analog_reader.read_channel(Channel.GAS_QUALITY_SENSOR)
-        light_level = self.analog_reader.read_channel(Channel.LIGHT_SENSOR)
+        soil_moisture = analog_inputs.read_channel(Channel.SOIL_MOISTURE_SENSOR)
+        air_quality = analog_inputs.read_channel(Channel.GAS_QUALITY_SENSOR)
+        light_level = analog_inputs.read_channel(Channel.LIGHT_SENSOR)
         water_level = water_level_sensor.get_distance()
 
         readings = {
