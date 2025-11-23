@@ -1,138 +1,232 @@
-///////////////////////// Automated Watering /////////////////////////
+///////////////////////// Automated Watering & Lighting /////////////////////////
+let currentDeviceId = null;
+
+// Załaduj listę urządzeń z backendu i wypełnij dropdown
+async function loadDevices() {
+  const select = document.getElementById("deviceSelect");
+  if (!select) {
+    console.warn("Brak #deviceSelect w HTML");
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/devices");
+    if (!res.ok) {
+      console.error("Nie udało się pobrać /api/devices:", res.status);
+      return;
+    }
+
+    const devices = await res.json();
+    select.innerHTML = "";
+
+    if (!devices.length) {
+      const opt = document.createElement("option");
+      opt.textContent = "Brak urządzeń";
+      opt.disabled = true;
+      opt.selected = true;
+      select.appendChild(opt);
+      currentDeviceId = null;
+      return;
+    }
+
+    // Spróbuj użyć ostatnio wybranego urządzenia
+    const savedId = localStorage.getItem("selectedDeviceId");
+    let selectedId = null;
+
+    if (savedId && devices.some(d => d.id === Number(savedId))) {
+      selectedId = Number(savedId);
+    } else {
+      selectedId = devices[0].id; // pierwsze z listy
+    }
+
+    currentDeviceId = selectedId;
+
+    devices.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.textContent = d.name || `Device ${d.id}`;
+      if (d.id === selectedId) opt.selected = true;
+      select.appendChild(opt);
+    });
+
+    select.addEventListener("change", () => {
+      currentDeviceId = Number(select.value);
+      localStorage.setItem("selectedDeviceId", String(currentDeviceId));
+      console.log("Wybrane device_id =", currentDeviceId);
+
+      getData();
+      getChartData();
+    });
+
+    console.log("Aktualne device_id =", currentDeviceId);
+  } catch (e) {
+    console.error("loadDevices error:", e);
+  }
+}
+
+// referencje do przełączników
 const autoSwitch = document.getElementById("autoSwitch");
 const manualSwitch = document.getElementById("manualSwitch");
 
-function getStatus() {
-  jQuery.ajax({
-    url: "/api/status",
-    type: "POST",
-    success: function (ndata) {
-      // console.log(ndata[0].status);
-      status = ndata[0].status;
-      if (status == "A") {
-        autoSwitch.checked = true;
-        manualSwitch.disabled = true;
-        manualSwitch.checked = false;
-      } else if (status == "M" || status == "F") {
-        autoSwitch.checked = false;
-        manualSwitch.checked = false;
-      } else if (status == "O") {
-        autoSwitch.checked = false;
-        manualSwitch.checked = true;
-      } else {
-        autoSwitch.checked = true;
-        manualSwitch.disabled = true;
-        manualSwitch.checked = false;
-      }
+// wysyłanie komendy do backendu (na razie device_id = 1)
+async function sendAutomationCommand(kind) {
+  if (!currentDeviceId) {
+    alert("Brak wybranego urządzenia (lista devices jest pusta albo się nie załadowała).");
+    return;
+  }
+
+  const deviceId = currentDeviceId;
+
+  const thresholdInputId = kind === "watering" ? "wateringThreshold" : "lightingThreshold";
+  const switchId        = kind === "watering" ? "autoSwitch"        : "manualSwitch";
+
+  const thresholdEl = document.getElementById(thresholdInputId);
+  const switchEl    = document.getElementById(switchId);
+
+  if (!thresholdEl || !switchEl) {
+    console.warn("Brak elementów progów / switchy w DOM");
+    return;
+  }
+
+  const threshold = Number(thresholdEl.value || 0);
+  const enabled   = switchEl.checked;
+
+  const body = {
+    device_id: deviceId,
+    command: kind === "watering" ? "set_watering" : "set_lighting",
+    payload_json: {
+      threshold: threshold,
+      enabled: enabled,
+      type: kind
+    },
+    scheduled_at: null
+  };
+
+  try {
+    const res = await fetch("/api/commands", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error("Command error:", res.status, txt);
+      alert("Nie udało się zapisać komendy (zobacz konsolę).");
+    } else {
+      const json = await res.json();
+      console.log("Command saved:", json);
     }
-  })
+  } catch (e) {
+    console.error("Fetch error:", e);
+    alert("Błąd połączenia z API.");
+  }
 }
 
-function auto() {
-  let autoStatus;
-  if (autoSwitch.checked) {
-    autoStatus = "A";
-    manualSwitch.disabled = true;
-    manualSwitch.checked = false;
-  } else {
-    autoStatus = "M";
-    manualSwitch.disabled = false;
+
+// zapisywanie progów w localStorage + wysłanie komendy
+function saveThreshold(type, value) {
+  localStorage.setItem(`${type}Threshold`, value);
+  console.log(`Saved ${type} threshold:`, value);
+  if (type === "watering" || type === "lighting") {
+    sendAutomationCommand(type);
   }
-  // console.log(autoStatus);
+}
 
-  $.ajax({
-    url: "changeStatus/" + autoStatus
-  })
+// przy starcie odtwórz progi z localStorage
+function restoreThresholds() {
+  const wateringValue = localStorage.getItem("wateringThreshold");
+  const lightingValue = localStorage.getItem("lightingThreshold");
+  if (wateringValue !== null) {
+    const el = document.getElementById("wateringThreshold");
+    if (el) el.value = wateringValue;
+  }
+  if (lightingValue !== null) {
+    const el = document.getElementById("lightingThreshold");
+    if (el) el.value = lightingValue;
+  }
+}
 
+// funkcje wywoływane z HTML: onclick="auto()" / onclick="manual()"
+function auto() {
+  console.log("Auto watering toggled");
+  if (autoSwitch && manualSwitch && autoSwitch.checked) {
+    manualSwitch.checked = false;
+  }
+  sendAutomationCommand("watering");
 }
 
 function manual() {
-  let manualStatus;
-  if (manualSwitch.checked) {
-    manualStatus = "O";
-  } else {
-    manualStatus = "F";
+  console.log("Manual lighting toggled");
+  sendAutomationCommand("lighting");
+}
+
+///////////////////////// Get readings (kafelki w dashboardzie) /////////////////////////
+
+async function getData() {
+  try {
+    const res = await fetch(`/api/graphs/latest?device_id=${currentDeviceId}&points=1`);
+    if (!res.ok) {
+      console.warn("getData status:", res.status);
+      return;
+    }
+    const data = await res.json();
+
+    const t = data.temperature?.values || [];
+    const h = data.humidity?.values   || [];
+    const s = data.soil?.values       || [];
+    const l = data.light?.values      || [];
+
+    if (t.length) $("#tempValue").html(t[t.length - 1].toFixed(1));
+    if (h.length) $("#humValue").html(h[h.length - 1].toFixed(1));
+    if (s.length) $("#soilValue").html(s[s.length - 1].toFixed(1));
+    if (l.length) $("#lightValue").html(l[l.length - 1].toFixed(0));
+  } catch (e) {
+    console.error("getData error:", e);
   }
-  // console.log(manualStatus);
-  $.ajax({
-    url: "changeStatus/" + manualStatus
-  })
 }
 
-///////////////////////// Get readings /////////////////////////
-function getData() {
-  jQuery.ajax({
-    url: "/api/getData",
-    type: "POST",
-    success: function (ndata) {
-      console.log(ndata);
-      tempValue = ndata[0].temperature;
-      humValue = ndata[0].humidity;
-      soilValue = ndata[0].moisture;
-      lightValue = ndata[0].light;
-
-      $('#tempValue').html(tempValue);
-      $('#humValue').html(humValue);
-      $('#soilValue').html(soilValue);
-      $('#lightValue').html(lightValue);
+/////////////////////// Get Chart data (wykresy) ///////////////////////
+async function getChartData() {
+  try {
+    const res = await fetch(`/api/graphs/latest?device_id=${currentDeviceId}&points=50`);
+    if (!res.ok) {
+      console.warn("getChartData status:", res.status);
+      return;
     }
-  })
-}
+    const data = await res.json();
 
-/////////////////////// Get Chart data ///////////////////////
-function getChartData() {
-  jQuery.ajax({
-    url: "/api/getChartData",
-    type: "POST",
-    success: function (ndata) {
-      // console.log(ndata)
-      const chartData = ndata;
-      // console.log("Getting Chart data")
+    const tempArr = data.temperature?.values || [];
+    const humArr  = data.humidity?.values    || [];
+    const soilArr = data.soil?.values        || [];
+    const lightArr= data.light?.values       || [];
+    const timeArr = data.temperature?.labels || [];
 
-      let tempArr = [];
-      let humArr = [];
-      let soilArr = [];
-      let lightArr = [];
-      let timeArr = [];
-
-      chartData.forEach((e) => {
-        tempArr.push(e.temperature);
-        humArr.push(e.humidity);
-        soilArr.push(e.moisture);
-        lightArr.push(e.light);
-
-        let datetime = e.datetimeid;
-        // console.log(datetime);
-        jsdatetime = new Date(Date.parse(datetime));
-        jstime = jsdatetime.toLocaleTimeString();
-        timeArr.push(jstime);
-      })
-
-      createGraph(tempArr, timeArr, '#tempChart');
-      createGraph(humArr, timeArr, '#humChart');
-      createGraph(soilArr, timeArr, '#soilChart');
-      createGraph(lightArr, timeArr, '#lightChart');
-
-    }
-  })
+    createGraph(tempArr, timeArr, "#tempChart");
+    createGraph(humArr,  timeArr, "#humChart");
+    createGraph(soilArr, timeArr, "#soilChart");
+    createGraph(lightArr,timeArr, "#lightChart");
+  } catch (e) {
+    console.error("getChartData error:", e);
+  }
 }
 
 // Charts
 function createGraph(data, newTime, newChart) {
+  if (!data.length || !newTime.length) return;
 
   let chartData = {
     labels: newTime,
     series: [data]
   };
-  // console.log(chartData);
 
   let options = {
     axisY: {
-      onlyInteger: true
+      onlyInteger: false
     },
     fullWidth: true,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     lineSmooth: true,
     chartPadding: {
       right: 50
@@ -140,17 +234,17 @@ function createGraph(data, newTime, newChart) {
   };
 
   new Chartist.Line(newChart, chartData, options);
-
 }
 
 /////////////////////// run functions ///////////////////////
 $(document).ready(function () {
+  loadDevices();
+  restoreThresholds();
   getData();
-  getStatus();
   getChartData();
 
   setInterval(function () {
     getData();
     getChartData();
   }, 5000);
-})
+});

@@ -1,31 +1,30 @@
-from __future__ import annotations
-
 import math
 import asyncio
 import json
 import os
 import datetime as dt
-from typing import Any, Optional, List, Dict
+from typing import Any, Optional, List, Dict, Set
+
 try:
     from typing import Annotated
 except ImportError:
     from typing_extensions import Annotated
 
-# --- Pydantic 1.x (lokalnie tak masz) ---
+# --- Pydantic 1.x ---
 from pydantic import BaseModel, Field, BaseSettings
 
 from fastapi import FastAPI, Depends, HTTPException, Query, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 
 from sqlalchemy import (
-    create_engine, Column, Integer, String, DateTime, JSON, Float, ForeignKey, Text, event
+    create_engine, Column, Integer, String, DateTime, JSON, Float, ForeignKey, Text, event, func
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, Session
 from fastapi import WebSocket, WebSocketDisconnect
-from typing import Set
+
 # =========================
 # Settings
 # =========================
@@ -38,7 +37,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
-# >>> TU MUSI BYĆ INICJALIZACJA, ZANIM UŻYJESZ `settings` <<<
+
 settings = Settings()
 
 # =========================
@@ -57,6 +56,7 @@ if settings.db_url.startswith("sqlite"):
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
 Base = declarative_base()
+
 
 class Device(Base):
     __tablename__ = "devices"
@@ -212,35 +212,33 @@ class MLOutput(BaseModel):
     output: List[float]
     backend: str
 
+
 # =========================
 # FastAPI app init
 # =========================
 app = FastAPI(title="roslinki_IOT API", version="0.1.0")
+
 # =========================
 # DB dependency
 # =========================
-
-from sqlalchemy import func
-
-def get_db() -> Session:
+def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-DB = Annotated[Session, Depends(get_db)]
 
-
-
-def _series_for_type(db: Session, sensor_type_like: str, limit_points: int = 50):
+def _series_for_type(db: Session, sensor_type_like: str, device_id: int, limit_points: int = 50):
     """
-    Zwraca (labels, values) dla PIERWSZEGO sensora, którego Sensor.type ILIKE %sensor_type_like%.
-    labels – lista krótkich HH:MM, values – lista float.
+    Zwraca serie danych tylko dla sensorów wybranego urządzenia.
     """
     sensor = (
         db.query(Sensor)
-        .filter(Sensor.type.ilike(f"%{sensor_type_like}%"))
+        .filter(
+            Sensor.type.ilike("%{}%".format(sensor_type_like)),
+            Sensor.device_id == device_id
+        )
         .order_by(Sensor.id.asc())
         .first()
     )
@@ -254,21 +252,22 @@ def _series_for_type(db: Session, sensor_type_like: str, limit_points: int = 50)
         .limit(limit_points)
         .all()
     )
-    rows = list(reversed(rows))  # rosnąco po czasie
+    rows = list(reversed(rows))
     labels = [r.ts.strftime("%H:%M") for r in rows]
     values = [float(r.value) for r in rows]
     return labels, values
 
+
 @app.get("/api/graphs/latest")
-def graphs_latest(db: DB, points: int = 50):
-    """
-    Zwraca dane do 4 wykresów: temperature, humidity, soil, light.
-    Bierzemy pierwszy pasujący sensor po nazwie typu (ILIKE).
-    """
-    t_lab, t_val = _series_for_type(db, "temp", points)
-    h_lab, h_val = _series_for_type(db, "hum", points)
-    s_lab, s_val = _series_for_type(db, "soil", points)
-    l_lab, l_val = _series_for_type(db, "light", points)
+def graphs_latest(
+    device_id: int,
+    points: int = 50,
+    db: Session = Depends(get_db),
+):
+    t_lab, t_val = _series_for_type(db, "temp", device_id, points)
+    h_lab, h_val = _series_for_type(db, "hum", device_id, points)
+    s_lab, s_val = _series_for_type(db, "soil", device_id, points)
+    l_lab, l_val = _series_for_type(db, "light", device_id, points)
 
     return {
         "temperature": {"labels": t_lab, "values": t_val},
@@ -276,10 +275,16 @@ def graphs_latest(db: DB, points: int = 50):
         "soil": {"labels": s_lab, "values": s_val},
         "light": {"labels": l_lab, "values": l_val},
     }
+
+
 import random
 
+
 @app.post("/api/dev/seed_readings")
-def dev_seed_readings(db: DB, points: int = 120):
+def dev_seed_readings(
+    points: int = 120,
+    db: Session = Depends(get_db),
+):
     """
     Tworzy (jeśli brak) urządzenie + 4 sensory (temp/hum/soil/light) i dodaje 'points' pomiarów
     co minutę wstecz od teraz, z lekkim szumem losowym.
@@ -313,40 +318,37 @@ def dev_seed_readings(db: DB, points: int = 120):
         return s
 
     s_temp = get_or_create_sensor("dht22_temp", "C")
-    s_hum  = get_or_create_sensor("dht22_hum", "%")
+    s_hum = get_or_create_sensor("dht22_hum", "%")
     s_soil = get_or_create_sensor("soil_moisture", "%")
-    s_light= get_or_create_sensor("light_level", "lx")
+    s_light = get_or_create_sensor("light_level", "lx")
 
     # 3) generujemy pomiary minute-by-minute
     now = dt.datetime.utcnow().replace(second=0, microsecond=0)
     base_temp = 23.0
-    base_hum  = 52.0
+    base_hum = 52.0
     base_soil = 40.0
-    base_light= 300.0
-
-    # usuń stare, jeśli chcesz czysto (opcjonalnie – zakomentuj, by nie kasować)
-    # db.query(Reading).filter(Reading.sensor_id.in_([s_temp.id, s_hum.id, s_soil.id, s_light.id])).delete(synchronize_session=False)
-    # db.commit()
+    base_light = 300.0
 
     items = []
     for i in range(points):
         ts = now - dt.timedelta(minutes=(points - 1 - i))
         # lekki trend / szum
-        t = base_temp + 0.5*math.sin(i/10) + random.uniform(-0.3, 0.3)
-        h = base_hum  + 2.0*math.sin(i/15) + random.uniform(-1.0, 1.0)
-        sm= base_soil + 3.0*math.sin(i/18) + random.uniform(-1.0, 1.5)
-        li= base_light+ 20.0*math.sin(i/8)  + random.uniform(-10.0, 10.0)
+        t = base_temp + 0.5 * math.sin(i / 10.0) + random.uniform(-0.3, 0.3)
+        h = base_hum + 2.0 * math.sin(i / 15.0) + random.uniform(-1.0, 1.0)
+        sm = base_soil + 3.0 * math.sin(i / 18.0) + random.uniform(-1.0, 1.5)
+        li = base_light + 20.0 * math.sin(i / 8.0) + random.uniform(-10.0, 10.0)
 
         items.extend([
             Reading(sensor_id=s_temp.id, ts=ts, value=float(t)),
-            Reading(sensor_id=s_hum.id,  ts=ts, value=float(h)),
+            Reading(sensor_id=s_hum.id, ts=ts, value=float(h)),
             Reading(sensor_id=s_soil.id, ts=ts, value=float(sm)),
-            Reading(sensor_id=s_light.id,ts=ts, value=float(li)),
+            Reading(sensor_id=s_light.id, ts=ts, value=float(li)),
         ])
 
     db.add_all(items)
     db.commit()
     return {"inserted": len(items), "device_id": dev.id, "sensors": [s_temp.id, s_hum.id, s_soil.id, s_light.id]}
+
 
 # =========================
 # ML "model"
@@ -368,7 +370,7 @@ class LocalModel:
                 self.session = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
                 self.backend = "onnxruntime"
         except Exception as e:
-            print(f"[LocalModel] Failed to load model from {path}: {e}")
+            print("[LocalModel] Failed to load model from {}: {}".format(path, e))
             self.backend = "dummy"
             self.model = None
             self.session = None
@@ -376,8 +378,9 @@ class LocalModel:
     def predict(self, features: List[float]) -> List[float]:
         if not features:
             return [0.0]
-        mean_val = sum(features) / len(features)
+        mean_val = sum(features) / float(len(features))
         return [mean_val, features[-1]]
+
 
 model = LocalModel(settings.model_path)
 
@@ -416,7 +419,7 @@ def on_startup():
 # HTML ROUTES (pages you open in browser)
 # =========================
 @app.get("/", response_class=HTMLResponse)
-def dashboard_page(request: Request, db: DB):
+def dashboard_page(request: Request, db: Session = Depends(get_db)):
     latest_readings = (
         db.query(Reading)
         .order_by(Reading.ts.desc())
@@ -430,7 +433,7 @@ def dashboard_page(request: Request, db: DB):
 
 
 @app.get("/devices_ui", response_class=HTMLResponse)
-def devices_page(request: Request, db: DB):
+def devices_page(request: Request, db: Session = Depends(get_db)):
     devices = db.query(Device).order_by(Device.id.asc()).all()
     return templates.TemplateResponse(
         "devices.html",
@@ -480,7 +483,7 @@ def health():
 
 # Devices
 @app.post("/api/devices", response_model=DeviceRead)
-def create_device(payload: DeviceCreate, db: DB):
+def create_device(payload: DeviceCreate, db: Session = Depends(get_db)):
     if db.query(Device).filter(Device.name == payload.name).first():
         raise HTTPException(status_code=400, detail="Device name already exists")
     dev = Device(**payload.dict())
@@ -491,13 +494,21 @@ def create_device(payload: DeviceCreate, db: DB):
 
 
 @app.get("/api/devices", response_model=List[DeviceRead])
-def list_devices(db: DB, page: int = 1, page_size: int = 50):
+def list_devices(
+    page: int = 1,
+    page_size: int = 50,
+    db: Session = Depends(get_db),
+):
     q = db.query(Device).order_by(Device.id.asc())
     return paginate(q, page, page_size).all()
 
 
 @app.patch("/api/devices/{device_id}", response_model=DeviceRead)
-def update_device(device_id: int, payload: DeviceCreate, db: DB):
+def update_device(
+    device_id: int,
+    payload: DeviceCreate,
+    db: Session = Depends(get_db),
+):
     dev = db.get(Device, device_id)
     if not dev:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -509,7 +520,7 @@ def update_device(device_id: int, payload: DeviceCreate, db: DB):
 
 
 @app.post("/api/devices/{device_id}/heartbeat", response_model=DeviceRead)
-def device_heartbeat(device_id: int, db: DB):
+def device_heartbeat(device_id: int, db: Session = Depends(get_db)):
     dev = db.get(Device, device_id)
     if not dev:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -521,7 +532,7 @@ def device_heartbeat(device_id: int, db: DB):
 
 # Sensors
 @app.post("/api/sensors", response_model=SensorRead)
-def create_sensor(payload: SensorCreate, db: DB):
+def create_sensor(payload: SensorCreate, db: Session = Depends(get_db)):
     if not db.get(Device, payload.device_id):
         raise HTTPException(status_code=400, detail="Device does not exist")
     s = Sensor(**payload.dict())
@@ -532,7 +543,12 @@ def create_sensor(payload: SensorCreate, db: DB):
 
 
 @app.get("/api/sensors", response_model=List[SensorRead])
-def list_sensors(db: DB, device_id: Optional[int] = None, page: int = 1, page_size: int = 100):
+def list_sensors(
+    device_id: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 100,
+    db: Session = Depends(get_db),
+):
     q = db.query(Sensor)
     if device_id is not None:
         q = q.filter(Sensor.device_id == device_id)
@@ -547,7 +563,6 @@ class ReadingsBulkIn(BaseModel):
 
 class ReadingsBulkOut(BaseModel):
     inserted: int
-
 
 
 async def broadcast_reading(reading: Reading, db: Session):
@@ -571,7 +586,7 @@ async def broadcast_reading(reading: Reading, db: Session):
 
 
 @app.post("/api/readings", response_model=ReadingRead)
-async def create_reading(payload: ReadingCreate, db: DB):
+async def create_reading(payload: ReadingCreate, db: Session = Depends(get_db)):
     if not db.get(Sensor, payload.sensor_id):
         raise HTTPException(status_code=400, detail="Sensor does not exist")
     r = Reading(**payload.dict())
@@ -586,11 +601,11 @@ async def create_reading(payload: ReadingCreate, db: DB):
 
 
 @app.post("/api/readings/bulk", response_model=ReadingsBulkOut)
-def create_readings_bulk(payload: ReadingsBulkIn, db: DB):
+def create_readings_bulk(payload: ReadingsBulkIn, db: Session = Depends(get_db)):
     count = 0
     for rc in payload.items:
         if not db.get(Sensor, rc.sensor_id):
-            raise HTTPException(status_code=400, detail=f"Sensor {rc.sensor_id} does not exist")
+            raise HTTPException(status_code=400, detail="Sensor {} does not exist".format(rc.sensor_id))
         db.add(Reading(**rc.dict()))
         count += 1
     db.commit()
@@ -599,12 +614,12 @@ def create_readings_bulk(payload: ReadingsBulkIn, db: DB):
 
 @app.get("/api/readings", response_model=List[ReadingRead])
 def list_readings(
-    db: DB,
     sensor_id: Optional[int] = None,
     since: Optional[dt.datetime] = Query(None, description="ISO timestamp lower bound"),
     until: Optional[dt.datetime] = Query(None, description="ISO timestamp upper bound"),
     page: int = 1,
     page_size: int = 500,
+    db: Session = Depends(get_db),
 ):
     q = db.query(Reading)
     if sensor_id is not None:
@@ -619,7 +634,11 @@ def list_readings(
 
 # Commands / pump control, etc.
 @app.post("/api/commands", response_model=CommandRead)
-def create_command(payload: CommandCreate, bg: BackgroundTasks, db: DB):
+def create_command(
+    payload: CommandCreate,
+    bg: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     if not db.get(Device, payload.device_id):
         raise HTTPException(status_code=400, detail="Device does not exist")
     cmd = Command(**payload.dict())
@@ -643,11 +662,11 @@ async def _maybe_dispatch_command(command_id: int):
 
 @app.get("/api/commands", response_model=List[CommandRead])
 def list_commands(
-    db: DB,
     device_id: Optional[int] = None,
     status: Optional[str] = None,
     page: int = 1,
-    page_size: int = 100
+    page_size: int = 100,
+    db: Session = Depends(get_db),
 ):
     q = db.query(Command)
     if device_id is not None:
@@ -659,7 +678,11 @@ def list_commands(
 
 
 @app.post("/api/commands/{command_id}/results", response_model=CommandResultRead)
-def add_command_result(command_id: int, payload: CommandResultCreate, db: DB):
+def add_command_result(
+    command_id: int,
+    payload: CommandResultCreate,
+    db: Session = Depends(get_db),
+):
     if command_id != payload.command_id:
         raise HTTPException(status_code=400, detail="command_id mismatch in path and body")
     if not db.get(Command, command_id):
@@ -680,8 +703,9 @@ def ml_predict(payload: MLInput):
     out = model.predict(payload.features)
     return MLOutput(output=out, backend=model.backend)
 
+
 @app.delete("/api/devices/{device_id}")
-def delete_device(device_id: int, db: DB):
+def delete_device(device_id: int, db: Session = Depends(get_db)):
     dev = db.get(Device, device_id)
     if not dev:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -689,9 +713,10 @@ def delete_device(device_id: int, db: DB):
     db.commit()
     return {"deleted": True, "id": device_id}
 
+
 # Dev seed (optional)
 @app.get("/api/dev/debug_counts")
-def dev_debug_counts(db: DB):
+def dev_debug_counts(db: Session = Depends(get_db)):
     return {
         "devices": db.query(Device).count(),
         "sensors": db.query(Sensor).count(),
@@ -699,8 +724,9 @@ def dev_debug_counts(db: DB):
         "first_sensor_types": [s.type for s in db.query(Sensor).order_by(Sensor.id.asc()).limit(10)]
     }
 
+
 @app.post("/api/dev/seed")
-def dev_seed(db: DB):
+def dev_seed(db: Session = Depends(get_db)):
     d = Device(
         name="raspi-gateway",
         ip="192.168.1.10",
@@ -723,6 +749,7 @@ def dev_seed(db: DB):
 
 # Lista aktywnych klientów websocket
 active_clients: Set[WebSocket] = set()
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

@@ -61,7 +61,7 @@
             </a>
           </li>
           <li class="active">
-            <a href="/dashboard">
+            <a href="/">
               <i class="fas fa-tachometer-alt"></i>
               <p>Dashboard</p>
             </a>
@@ -241,54 +241,9 @@
   </div>
 
   <!-- Scripts -->
-  <script>
-    // Device dropdown
-    document.addEventListener("DOMContentLoaded", () => {
-      const select = document.getElementById("deviceSelect");
-      if (!select) return;
 
-      const devices = JSON.parse(localStorage.getItem("devices") || "[]");
-      const selected = localStorage.getItem("selectedDevice");
+</script>
 
-      if (devices.length === 0) {
-        const opt = document.createElement("option");
-        opt.textContent = "No devices";
-        opt.disabled = true;
-        select.appendChild(opt);
-        return;
-      }
-
-      devices.forEach((d) => {
-        const opt = document.createElement("option");
-        opt.value = d.ip;
-        opt.textContent = d.name;
-        if (selected === d.ip) opt.selected = true;
-        select.appendChild(opt);
-      });
-
-      select.addEventListener("change", () => {
-        localStorage.setItem("selectedDevice", select.value);
-        window.location.reload();
-      });
-    });
-
-    // Save thresholds
-    function saveThreshold(type, value) {
-      localStorage.setItem(`${type}Threshold`, value);
-      console.log(`Saved ${type} threshold:`, value);
-    }
-
-    window.onload = function() {
-      const wateringValue = localStorage.getItem('wateringThreshold');
-      const lightingValue = localStorage.getItem('lightingThreshold');
-      if (wateringValue) document.getElementById('wateringThreshold').value = wateringValue;
-      if (lightingValue) document.getElementById('lightingThreshold').value = lightingValue;
-    };
-
-    // Dummy switch functions
-    function auto() { console.log("Auto watering toggled"); }
-    function manual() { console.log("Manual lighting toggled"); }
-  </script>
 
   <script src="static/js/bootstrap.min.js" type="text/javascript"></script>
   <script src="static/js/bootstrap-checkbox-radio.js"></script>
