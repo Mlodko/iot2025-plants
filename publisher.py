@@ -2,7 +2,7 @@ import time
 import json
 import datetime
 from paho.mqtt import client as mqtt
-from sqlalchemy import create_engine, MetaData, select, update
+from sqlalchemy import create_engine, MetaData, Table, select, update
 
 # konfiguracja MQTT + baza sqlite
 BROKER = "localhost"
@@ -18,7 +18,6 @@ meta.reflect(bind=engine)
 commands = meta.tables.get("commands")
 devices = meta.tables.get("devices")
 
-
 # pobieranie oczekujących komend z statusem 'sent'
 def fetch_pending_commands():
     try:
@@ -29,7 +28,7 @@ def fetch_pending_commands():
                     commands.c.device_id,
                     commands.c.command,
                     commands.c.payload_json,
-                    devices.c.uuid.label("device_uuid")
+                    devices.c.name.label("device_name")
                 ).join(devices, commands.c.device_id == devices.c.id)
                 .where(commands.c.status == "sent")
             ).fetchall()
@@ -38,22 +37,21 @@ def fetch_pending_commands():
         print(f"[PUBLISHER] DB error while fetching commands: {e}")
         return []
 
-
 # publikacja komendy do MQTT i zmiana statusa na 'sent2pot'
 def publish_command(cmd_row):
     try:
-        device_uuid = cmd_row.device_uuid
-        if not device_uuid:
-            print(f"[PUBLISHER] Warning: command {cmd_row.id} has no device_uuid, skipping.")
+        device_id = cmd_row.device_name
+        if not device_id:
+            print(f"[PUBLISHER] Warning: command {cmd_row.id} has no device identifier, skipping.")
             return
 
-        topic = f"/{device_uuid}/control"
-        payload = cmd_row.payload_json
+        topic = f"/{device_id}/control"
+        payload = json.dumps(cmd_row.payload_json)
 
         print(f"[PUBLISHER] Publishing to {topic}: {payload}")
         mqtt_client.publish(topic, payload, qos=1)
 
-        # update w bazie - komenda wysłana do doniczki
+        # update w bazie - komenda wysłana
         with engine.begin() as conn:
             conn.execute(
                 update(commands)
@@ -65,7 +63,6 @@ def publish_command(cmd_row):
 
     except Exception as e:
         print(f"[PUBLISHER] Failed to publish command {cmd_row.id}: {e}")
-
 
 # inicjalizacja MQTT
 mqtt_client = mqtt.Client(client_id=f"publisher-{int(time.time())}")
@@ -81,6 +78,7 @@ print("[PUBLISHER] Started with adaptive-sleep loop.")
 
 try:
     while True:
+
         rows = fetch_pending_commands()
 
         if rows:
@@ -89,8 +87,11 @@ try:
             for row in rows:
                 publish_command(row)
 
+            # szybkie reagowanie po komendach
             sleep_time = MIN_SLEEP
+
         else:
+            # nic nowego -> stopniowo spowalniamy
             sleep_time = min(sleep_time * 1.5, MAX_SLEEP)
             print(f"[PUBLISHER] No commands -> sleeping {sleep_time:.2f}s")
 
