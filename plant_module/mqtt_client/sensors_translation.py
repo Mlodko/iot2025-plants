@@ -2,18 +2,14 @@
 This module provides higher level abstraction functions for polling sensors and controlling actuators.
 '''
 
-import GPIO_python.air_temp_moisture as atm_sensors
-import GPIO_python.analog_inputs as analog_inputs
-import GPIO_python.distance_sensor as water_level_sensor
-from GPIO_python.motor import MotorThread
-from GPIO_python.relay import RelayThread
-from GPIO_python.analog_inputs import Channel
 import logging
 
 
 
 class SensorsController:
     def __init__(self):
+        from GPIO_python.motor import MotorThread
+        from GPIO_python.relay import RelayThread
         self.water_pump: MotorThread = MotorThread()
         self.light_bulb: RelayThread = RelayThread()
         self._running: bool = False
@@ -52,6 +48,10 @@ class SensorsController:
             return False
 
     def get_sensor_reading(self) -> dict[str, int | float] | None:
+        import GPIO_python.air_temp_moisture as atm_sensors
+        import GPIO_python.analog_inputs as analog_inputs
+        import GPIO_python.distance_sensor as water_level_sensor
+        from GPIO_python.analog_inputs import Channel
         if not self._running:
             logging.error("SensorsController is not running")
             return None
