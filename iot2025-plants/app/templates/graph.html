@@ -212,9 +212,17 @@
           return d.toISOString();
       }
 
-      function toLocalTimeStr(iso) {
-          return new Date(iso).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      function toLocalTimeStr(iso, hours) {
+          const d = new Date(iso);
+          if (hours > 48) {
+              // pokazuj datę (dzień i miesiąc)
+              return d.toLocaleDateString([], {day: '2-digit', month: 'short'});
+          } else {
+              // pokazuj tylko godzinę
+              return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+          }
       }
+
 
       // rysowanie wykresu Chartist
       function drawLine(chartSelector, values, labels) {
@@ -273,7 +281,7 @@
 
               const rows = await fetchReadings(sensorId, hours);
               const values = rows.map(r => r.value).reverse();
-              const labels = rows.map(r => toLocalTimeStr(r.ts)).reverse();
+              const labels = rows.map(r => toLocalTimeStr(r.ts, hours)).reverse();
               drawLine(`#${chartId}`, values, labels);
           } catch (e) {
               console.error("renderSingle error", e);
@@ -415,4 +423,5 @@
 -->
 </body>
 </html>
+
 
