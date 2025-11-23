@@ -56,7 +56,7 @@ class SensorPublisher:
                 json.dump(existing_json, file, indent=2)
             logging.info(f"Saved pot ID {str(pot_id)} to file {save_pot_id_path}")       
         
-        logging.info(f"Main topic: /{pot_id}/sensors")
+        print(f"Main topic: /{pot_id}/sensors")
         self.client: Client = client
         self.publishing: bool = False
         self.pot_id: UUID = pot_id
