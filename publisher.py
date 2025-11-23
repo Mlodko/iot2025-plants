@@ -2,12 +2,11 @@ import time
 import json
 import datetime
 from paho.mqtt import client as mqtt
-from sqlalchemy import create_engine, MetaData, Table, select, update
+from sqlalchemy import create_engine, MetaData, select, update
 
 # konfiguracja MQTT + baza sqlite
 BROKER = "localhost"
 PORT = 1883
-
 DB_PATH = "sqlite:////home/pi/server/app/iot.db"
 
 # połączenie do bazy
@@ -17,6 +16,7 @@ meta.reflect(bind=engine)
 
 commands = meta.tables.get("commands")
 devices = meta.tables.get("devices")
+
 
 # pobieranie oczekujących komend z statusem 'sent'
 def fetch_pending_commands():
@@ -37,7 +37,8 @@ def fetch_pending_commands():
         print(f"[PUBLISHER] DB error while fetching commands: {e}")
         return []
 
-# publikacja komendy do MQTT i zmiana statusa na 'sent2pot'
+
+# publikacja komendy do MQTT i zmiana statusu na 'sent2pot'
 def publish_command(cmd_row):
     try:
         device_id = cmd_row.device_name
@@ -46,7 +47,7 @@ def publish_command(cmd_row):
             return
 
         topic = f"/{device_id}/control"
-        payload = json.dumps(cmd_row.payload_json)
+        payload = json.dumps(cmd_row.payload_json) if cmd_row.payload_json else ""
 
         print(f"[PUBLISHER] Publishing to {topic}: {payload}")
         mqtt_client.publish(topic, payload, qos=1)
@@ -64,34 +65,47 @@ def publish_command(cmd_row):
     except Exception as e:
         print(f"[PUBLISHER] Failed to publish command {cmd_row.id}: {e}")
 
+
+# callbacki MQTT
+def on_connect(client, userdata, flags, rc, properties=None):
+    if rc == 0:
+        print("[PUBLISHER] Connected to MQTT broker successfully.")
+    else:
+        print(f"[PUBLISHER] Failed to connect, return code {rc}")
+
+
+def on_publish(client, userdata, mid):
+    print(f"[PUBLISHER] Message {mid} published")
+
+
 # inicjalizacja MQTT
-mqtt_client = mqtt.Client(client_id=f"publisher-{int(time.time())}")
+mqtt_client = mqtt.Client(
+    client_id=f"publisher-{int(time.time())}",
+    userdata=None,
+    protocol=mqtt.MQTTv311
+)
+mqtt_client.on_connect = on_connect
+mqtt_client.on_publish = on_publish
 mqtt_client.connect(BROKER, PORT, keepalive=60)
 mqtt_client.loop_start()
 
 # pętla
-MIN_SLEEP = 0.2   # szybko, gdy są nowe komendy
-MAX_SLEEP = 5.0   # wolno, gdy nic się nie dzieje
+MIN_SLEEP = 0.2
+MAX_SLEEP = 5.0
 sleep_time = MIN_SLEEP
 
 print("[PUBLISHER] Started with adaptive-sleep loop.")
 
 try:
     while True:
-
         rows = fetch_pending_commands()
 
         if rows:
             print(f"[PUBLISHER] Found {len(rows)} new command(s). Processing...")
-
             for row in rows:
                 publish_command(row)
-
-            # szybkie reagowanie po komendach
             sleep_time = MIN_SLEEP
-
         else:
-            # nic nowego -> stopniowo spowalniamy
             sleep_time = min(sleep_time * 1.5, MAX_SLEEP)
             print(f"[PUBLISHER] No commands -> sleeping {sleep_time:.2f}s")
 
