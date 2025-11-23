@@ -17,19 +17,19 @@ meta.reflect(bind=engine)
 
 commands = meta.tables.get("command")
 
-# pobieranie oczekujących komend z statusem 'received'
+# pobieranie oczekujących komend z statusem 'sent'
 def fetch_pending_commands():
     try:
         with engine.begin() as conn:
             rows = conn.execute(
-                select(commands).where(commands.c.status == "received")
+                select(commands).where(commands.c.status == "sent")
             ).fetchall()
         return rows
     except Exception as e:
         print(f"[PUBLISHER] DB error while fetching commands: {e}")
         return []
 
-# publikacja komendy do MQTT i zmiana statusa na 'sent'
+# publikacja komendy do MQTT i zmiana statusa na 'sent2pot'
 def publish_command(cmd_row):
     try:
         device_uuid = cmd_row.device_uuid  # np. 'abcd1234'
@@ -40,12 +40,12 @@ def publish_command(cmd_row):
 
         mqtt_client.publish(topic, payload, qos=1)
 
-        # update w bazie — komenda wysłana
+        # update w bazie - komenda wysłana do doniczki
         with engine.begin() as conn:
             conn.execute(
                 update(commands)
                 .where(commands.c.id == cmd_row.id)
-                .values(status="sent", sent_at=datetime.datetime.now())
+                .values(status="sent2pot", sent_at=datetime.datetime.now())
             )
 
         print(f"[PUBLISHER] Command {cmd_row.id} marked as sent.")
