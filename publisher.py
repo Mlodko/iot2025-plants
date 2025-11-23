@@ -82,7 +82,7 @@ try:
         else:
             # nic nowego -> stopniowo spowalniamy
             sleep_time = min(sleep_time * 1.5, MAX_SLEEP)
-            print(f"[PUBLISHER] No commands → sleeping {sleep_time:.2f}s")
+            print(f"[PUBLISHER] No commands -> sleeping {sleep_time:.2f}s")
 
         time.sleep(sleep_time)
 
