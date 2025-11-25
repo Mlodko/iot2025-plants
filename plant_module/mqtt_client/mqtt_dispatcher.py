@@ -74,7 +74,7 @@ class MQTTDispatcher:
 async def main():
     pot_config = PotConfig.load_from_file() or PotConfig()
     dispatcher = MQTTDispatcher(pot_config=pot_config)
-    dispatcher.add_handler(f"/{pot_config.get_pot_id()}/control", ControlManager(pot_config.get_pot_id(), dispatcher.client))
+    dispatcher.add_handler(f"/{pot_config.get_pot_id()}/control", ControlManager(pot_config, dispatcher.client))
     async with dispatcher.client:
         await dispatcher.start()
         await dispatcher.run_dispatch()

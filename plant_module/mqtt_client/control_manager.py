@@ -1,6 +1,9 @@
 from asyncio.tasks import Task
 from typing import Any, Callable
 from aiomqtt import Client
+
+from plant_module.mqtt_client.pot_config import PotConfig
+from plant_module.mqtt_client.sensors_translation import SensorsController
 from .control_request import *
 from enum import Enum, StrEnum
 from uuid import UUID
@@ -23,8 +26,8 @@ class Sensor(StrEnum):
 
 
 class ControlManager(MQTTHandler):
-    def __init__(self, pot_id: UUID, client: Client) -> None:
-        self.pot_id: UUID = pot_id
+    def __init__(self, pot_config: PotConfig, client: Client) -> None:
+        self.pot_id: UUID = pot_config.pot_id
         self.client: Client = client
         self.control_topic: str = f"/{self.pot_id}/control"
         self.SENSOR_TOPIC_PREFIX: str = f"{self.pot_id}/sensors"
@@ -35,6 +38,9 @@ class ControlManager(MQTTHandler):
         self.light_bulb.setup()
         self.scheduler: Scheduler = Scheduler()
         self.scheduler_task: Task[None] = asyncio.create_task(self.scheduler.run())
+        controller = SensorsController()
+        controller.setup()
+        self.controller = controller
         
     async def handle_message(self, topic: str, payload: bytes) -> None:
         request = self._decode_payload(payload)
@@ -67,17 +73,19 @@ class ControlManager(MQTTHandler):
             if t == "now":
                 return datetime.now()
             return t
-    
+        
+        def on_action():
+            self.controller.light_bulb_on()
+        def off_action():
+            self.controller.light_bulb_off()
+        
         start_time = resolve_time(st.start_time)
         repeat_interval = st.repeat_interval
     
         if request.command == "on":
             # ON with duration
             if st.duration is not None:
-                def on_action():
-                    self.light_bulb.turn_on()
-                def off_action():
-                    self.light_bulb.turn_off()
+                
                 # Schedule ON
                 await self.scheduler.add_event(
                     ScheduledEvent(start_time, on_action, repeat_interval)
@@ -88,10 +96,6 @@ class ControlManager(MQTTHandler):
                 )
             # ON with end_time
             elif st.end_time is not None:
-                def on_action():
-                    self.light_bulb.turn_on()
-                def off_action():
-                    self.light_bulb.turn_off()
                 await self.scheduler.add_event(
                     ScheduledEvent(start_time, on_action, repeat_interval)
                 )
@@ -100,15 +104,10 @@ class ControlManager(MQTTHandler):
                 )
             # ON indefinitely from start_time
             else:
-                def on_action():
-                    self.light_bulb.turn_on()
                 await self.scheduler.add_event(
                     ScheduledEvent(start_time, on_action, repeat_interval)
                 )
         elif request.command == "off":
-            # OFF at start_time (indefinitely)
-            def off_action():
-                self.light_bulb.turn_off()
             await self.scheduler.add_event(
                 ScheduledEvent(start_time, off_action, repeat_interval)
             )
@@ -118,9 +117,9 @@ class ControlManager(MQTTHandler):
         if not request.scheduled_time:
             # Immediate, indefinite/non-repeating action
             if request.command == "on":
-                self.light_bulb.turn_on()
+                self.controller.light_bulb_on()
             else:
-                self.light_bulb.turn_off()
+                self.controller.light_bulb_off()
         else:
             # Scheduled or repeating action
             _ = asyncio.create_task(self._schedule_lightbulb(request))
@@ -129,15 +128,19 @@ class ControlManager(MQTTHandler):
         _ = asyncio.create_task(self._schedule_water_pump(request))
         
     async def _schedule_water_pump(self, request: WaterPumpControlRequest):
+        def on_action():
+            self.controller.water_pump_on()
+        def off_action():
+            self.controller.water_pump_off()
         if not request.scheduled_time:
             try:
                 if request.command == "on":
-                    self.water_pump.turn_on()
+                    on_action()
                     await self.scheduler.add_event(
-                        ScheduledEvent(datetime.now() + WATER_PULSE_DURATION, self.water_pump.turn_off)
+                        ScheduledEvent(datetime.now() + WATER_PULSE_DURATION, off_action)
                     )
                 else:
-                    self.water_pump.turn_off()
+                    off_action()
             except RuntimeError as e:
                 print(f"Caught error scheduling water pump: {e}")
             finally:
@@ -155,10 +158,10 @@ class ControlManager(MQTTHandler):
         repeat_interval = st.repeat_interval
             
         await self.scheduler.add_event(
-            ScheduledEvent(start_time, self.water_pump.turn_on, repeat_interval)
+            ScheduledEvent(start_time, on_action, repeat_interval)
         )
         await self.scheduler.add_event(
-            ScheduledEvent(start_time + WATER_PULSE_DURATION, self.water_pump.turn_off, repeat_interval)
+            ScheduledEvent(start_time + WATER_PULSE_DURATION, off_action, repeat_interval)
         )
         
         
