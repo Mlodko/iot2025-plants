@@ -14,9 +14,9 @@ Scheduled time with a duration or an end time with optional repeat interval
 '''
 class DurationScheduledTime(BaseModel):
     start_time: datetime | Literal["now"] # when to start, now or at a specific time
-    end_time: datetime | None # when to end
-    duration: timedelta | None # OR how long
-    repeat_interval: timedelta | None # AND how often to repeat
+    end_time: datetime | None = None # when to end
+    duration: timedelta | None = None # OR how long
+    repeat_interval: timedelta | None = None # AND how often to repeat
     model_config = {
         "json_schema_extra": {
             "oneOf": [
@@ -41,7 +41,7 @@ Scheduled time representing an impulse with optional repeat interval
 '''
 class ImpulseScheduledTime(BaseModel):
     start_time: datetime | Literal["now"] # when to start, now or at a specific time
-    repeat_interval: timedelta | None # how often to repeat
+    repeat_interval: timedelta | None = None # how often to repeat
 
 '''
 Examples:
@@ -100,7 +100,7 @@ Examples:
 class LightControlRequest(BaseModel):
     actuator: Literal["light_bulb"]
     command: Command
-    scheduled_time: DurationScheduledTime | None # Schedule the action to execute later or in a loop
+    scheduled_time: DurationScheduledTime | None = None # Schedule the action to execute later or in a loop
 
 '''
 Examples:
@@ -147,7 +147,7 @@ QUESTION:
 class WaterPumpControlRequest(BaseModel):
     actuator: Literal["water_pump"]
     command: Command
-    scheduled_time: ImpulseScheduledTime | None
+    scheduled_time: ImpulseScheduledTime | None = None
 
 ControlRequest = Annotated[LightControlRequest | WaterPumpControlRequest, A]
 

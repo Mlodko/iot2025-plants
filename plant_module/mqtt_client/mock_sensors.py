@@ -1,5 +1,7 @@
 import random
-import asyncio
+from datetime import datetime, timedelta
+
+WATER_PULSE_DURATION = timedelta(seconds = 1)
 
 def get_air_quality() -> int:
     return random.randint(0, 1023)
@@ -33,13 +35,15 @@ class LightBulb:
         if self.active:
             raise RuntimeError("Lightbulb already running you idiot")
         self.active = True
+        print(f"[{datetime.now()}] Lightbulb turned on")
     
     def turn_off(self) -> None:
         if not self.primed:
             raise RuntimeError("Lightbulb not primed stupid")
-        if self.active:
+        if not self.active:
             raise RuntimeError("Lightbulb is not running you idiot")
         self.active = False
+        print(f"[{datetime.now()}] Lightbulb turned off")
         
 class WaterPump:
     def __init__(self) -> None:
@@ -55,11 +59,13 @@ class WaterPump:
         if self.active:
             raise RuntimeError("Water pump already running you idiot")
         self.active = True
+        print("Water pump turned on")
     
     def turn_off(self) -> None:
         if not self.primed:
             raise RuntimeError("Water pump not primed stupid")
-        if self.active:
+        if not self.active:
             raise RuntimeError("Water pump is not running you idiot")
         self.active = False
+        print("Water pump turned off")
         

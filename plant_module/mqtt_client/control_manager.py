@@ -4,10 +4,11 @@ from aiomqtt import Client
 from .control_request import *
 from enum import Enum, StrEnum
 from uuid import UUID
-from .mqtt_dispatcher import MQTTHandler
+from plant_module.mqtt_client.mqtt_handler import MQTTHandler
 import asyncio
+import time
 
-from .mock_sensors import WaterPump, LightBulb
+from .mock_sensors import WATER_PULSE_DURATION, WaterPump, LightBulb
 from .schedule import Scheduler, ScheduledEvent
 
 
@@ -37,9 +38,12 @@ class ControlManager(MQTTHandler):
         
     async def handle_message(self, topic: str, payload: bytes) -> None:
         request = self._decode_payload(payload)
+        print(f"ControlManager.handle_message: {request}")
         if isinstance(request, LightControlRequest):
+            print("LightControlRequest")
             self._handle_light_control_request(request)
         else:
+            print("WaterPumpControlRequest")
             self._handle_water_pump_control_request(request)
             
     
@@ -110,6 +114,7 @@ class ControlManager(MQTTHandler):
             )
     
     def _handle_light_control_request(self, request: LightControlRequest) -> None:
+        print(f"Current light state: {self.light_bulb.active}")
         if not request.scheduled_time:
             # Immediate, indefinite/non-repeating action
             if request.command == "on":
@@ -121,7 +126,41 @@ class ControlManager(MQTTHandler):
             _ = asyncio.create_task(self._schedule_lightbulb(request))
             
     def _handle_water_pump_control_request(self, request: WaterPumpControlRequest) -> None:
-        pass
+        _ = asyncio.create_task(self._schedule_water_pump(request))
+        
+    async def _schedule_water_pump(self, request: WaterPumpControlRequest):
+        if not request.scheduled_time:
+            try:
+                if request.command == "on":
+                    self.water_pump.turn_on()
+                    await self.scheduler.add_event(
+                        ScheduledEvent(datetime.now() + WATER_PULSE_DURATION, self.water_pump.turn_off)
+                    )
+                else:
+                    self.water_pump.turn_off()
+            except RuntimeError as e:
+                print(f"Caught error scheduling water pump: {e}")
+            finally:
+                return
+            
+        st = request.scheduled_time
+        # Helper to resolve "now"
+        def resolve_time(t: datetime | Literal["now"]) -> datetime:
+            from datetime import datetime
+            if t == "now":
+                return datetime.now()
+            return t
+            
+        start_time = resolve_time(st.start_time)
+        repeat_interval = st.repeat_interval
+            
+        await self.scheduler.add_event(
+            ScheduledEvent(start_time, self.water_pump.turn_on, repeat_interval)
+        )
+        await self.scheduler.add_event(
+            ScheduledEvent(start_time + WATER_PULSE_DURATION, self.water_pump.turn_off, repeat_interval)
+        )
+        
         
     def _start_sensor_publishing(self) -> None:
         SENSOR_READING_INTERVAL = timedelta(seconds = 2)
