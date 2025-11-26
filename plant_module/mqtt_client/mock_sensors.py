@@ -35,7 +35,7 @@ class LightBulb:
         if self.active:
             raise RuntimeError("Lightbulb already running you idiot")
         self.active = True
-        print(f"[{datetime.now()}] Lightbulb turned on")
+        print("Lightbulb turned on")
     
     def turn_off(self) -> None:
         if not self.primed:
@@ -43,7 +43,7 @@ class LightBulb:
         if not self.active:
             raise RuntimeError("Lightbulb is not running you idiot")
         self.active = False
-        print(f"[{datetime.now()}] Lightbulb turned off")
+        print("Lightbulb turned off")
         
 class WaterPump:
     def __init__(self) -> None:

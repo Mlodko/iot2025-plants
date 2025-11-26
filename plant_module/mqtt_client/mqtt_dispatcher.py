@@ -1,5 +1,6 @@
 import asyncio
 from asyncio.tasks import Task
+import logging
 from uuid import UUID
 from aiomqtt import Client
 from abc import ABC, abstractmethod
@@ -48,23 +49,19 @@ class MQTTDispatcher:
             self.tasks[topic] = asyncio.create_task(self._process_queue(topic, handler, queue))
         
         all_topics: list[str] = [str(topic) for topic in self.handlers.keys()]
-        print(f"Subscribed to topics: {all_topics}")
+        logging.info(f"Subscribed to topics: {all_topics}")
         async for message in self.client.messages:
-            print("got message")
             topic = str(message.topic)
-            print(f"processing message for topic {topic}")
             if topic not in all_topics:
-                print(f"[WARN] Received message for unknown topic: {topic}, skipping")
+                logging.warning(f"Received message for unknown topic: {topic}, skipping")
                 continue
             _, queue = self.handlers[topic]
             payload: bytes = message.payload if isinstance(message.payload, bytes) else bytes(str(message.payload), 'utf-8')
-            print(f"putting payload {payload} into queue {queue.qsize()}")
             await queue.put(payload)
             
     async def _process_queue(self, topic: str, handler: MQTTHandler, message_queue: Queue[bytes]) -> None:
         while self._running:
             payload: bytes = await message_queue.get()
-            print("processing message")
             try:
                 await handler.handle_message(topic, payload)
             except Exception as e:

@@ -82,7 +82,7 @@ class SensorsController:
             logging.info("Water pump is already on")
             return False
 
-        print("Turning water pump on")
+        logging.info("Turning water pump on")
         self.water_pump.turn_on()
         self._water_pump_running = True
         return True
@@ -96,7 +96,7 @@ class SensorsController:
             logging.info("Water pump is already off")
             return False
         
-        print("Turning water pump off")
+        logging.info("Turning water pump off")
         self.water_pump.turn_off()
         self._water_pump_running = False
         return True
@@ -110,7 +110,7 @@ class SensorsController:
             logging.info("Light is already on")
             return False
 
-        print("Turning light bulb on")
+        logging.info("Turning light bulb on")
         self.light_bulb.turn_on()
         self._light_bulb_running = True
         return True
@@ -124,7 +124,7 @@ class SensorsController:
             logging.info("Light is already off")
             return False
 
-        print("Turning light bulb off")
+        logging.info("Turning light bulb off")
         self.light_bulb.turn_off()
         self._light_bulb_running = False
         return True

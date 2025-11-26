@@ -44,12 +44,9 @@ class ControlManager(MQTTHandler):
         
     async def handle_message(self, topic: str, payload: bytes) -> None:
         request = self._decode_payload(payload)
-        print(f"ControlManager.handle_message: {request}")
         if isinstance(request, LightControlRequest):
-            print("LightControlRequest")
             self._handle_light_control_request(request)
         else:
-            print("WaterPumpControlRequest")
             self._handle_water_pump_control_request(request)
             
     
@@ -113,7 +110,6 @@ class ControlManager(MQTTHandler):
             )
     
     def _handle_light_control_request(self, request: LightControlRequest) -> None:
-        print(f"Current light state: {self.light_bulb.active}")
         if not request.scheduled_time:
             # Immediate, indefinite/non-repeating action
             if request.command == "on":
@@ -142,7 +138,7 @@ class ControlManager(MQTTHandler):
                 else:
                     off_action()
             except RuntimeError as e:
-                print(f"Caught error scheduling water pump: {e}")
+                print(f"[WARN] Caught error scheduling water pump: {e}")
             finally:
                 return
             

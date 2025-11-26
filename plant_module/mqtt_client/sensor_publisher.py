@@ -41,7 +41,6 @@ class SensorPublisher:
             sensors_controller.setup()
         
     async def _publish_all_readings(self):
-        print("Publish tick")
         full_topic = f"/{self.pot_id}/sensors"
         timestamp = datetime.now() 
         if self._if_use_mock_sensors:
@@ -129,7 +128,6 @@ if __name__ == "__main__":
         
         
         client = Client(hostname=hostname, port=port)
-        print(client)
         publisher = SensorPublisher(client, interval, pot_config, sensors_controller)
         async with client:
             task = asyncio.create_task(publisher.start())
