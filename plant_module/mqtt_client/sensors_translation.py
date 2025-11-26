@@ -2,9 +2,18 @@
 This module provides higher level abstraction functions for polling sensors and controlling actuators.
 '''
 
+from datetime import timedelta
 import logging
 
-
+MILLILITERS_PER_SECOND_PUMPED = 14
+READINGS_VALID_RANGES = {
+    "air_quality_sensor": (0, 1024),
+    "light_sensor": (0, 1024),
+    "soil_moisture_sensor": (0, 1024),
+    "air_humidity_sensor": (0, 101),
+    "temperature_sensor": (0, 61),
+    "water_level_sensor": (0, 10)
+}
 
 class SensorsController:
     def __init__(self):
@@ -15,6 +24,11 @@ class SensorsController:
         self._running: bool = False
         self._water_pump_running: bool = False
         self._light_bulb_running: bool = False
+        self._last_valid_reading: dict[str, int | float] = {
+            # Use minimal valid value as default
+            name: float(range[0]) if name == "water_level_sensor" else int(range[0])
+            for name, range in READINGS_VALID_RANGES.items()
+        }
 
 
     def __del__(self):
@@ -46,7 +60,22 @@ class SensorsController:
         except Exception as e:
             logging.error(f"An unexpected error occurred during close: {e}")
             return False
-
+    
+    def _sanitize_reading(self, sensor_name: str, value: int | float) -> int | float:
+        '''
+        Sanitizes the reading by ensuring it falls within the range defined in READINGS_VALID_RANGES.
+        If the reading is invalid, it logs a warning and returns the last valid reading.
+        
+        Note: SensorsController sets sets the last valid reading as the minimum valid value on initialization.
+        '''
+        (min, max) = READINGS_VALID_RANGES[sensor_name]
+        if min <= value <= max:
+            self._last_valid_reading[sensor_name] = value
+            return value
+        else:
+            logging.warning(f"Invalid reading for {sensor_name}: {value}")
+            return self._last_valid_reading[sensor_name]
+    
     def get_sensor_reading(self) -> dict[str, int | float] | None:
         import GPIO_python.air_temp_moisture as atm_sensors
         import GPIO_python.analog_inputs as analog_inputs
@@ -63,15 +92,34 @@ class SensorsController:
         water_level = water_level_sensor.get_distance()
 
         readings = {
-            "air_humidity_sensor": air_humidity,
+            "air_humidity_sensor": int(air_humidity),
             "soil_moisture_sensor": int(soil_moisture),
             "air_quality_sensor": int(air_quality),
             "light_sensor": int(light_level),
             "water_level_sensor": water_level,
             "temperature_sensor": temperature
         }
+        
+        sanitized_readings = {
+            name: self._sanitize_reading(name, value)
+            for name, value in readings.items()
+        }
 
-        return readings
+        return sanitized_readings
+
+    @staticmethod
+    def get_water_pump_activation_duration(volume_ml: int) -> timedelta:
+        """
+        Calculate the duration for which the water pump should be activated to pump the given volume of water.
+        
+        Args:
+            volume_ml (int): The volume of water to be pumped in milliliters.
+        
+        Returns:
+            timedelta: The duration for which the water pump should be activated.
+        """
+        seconds = volume_ml / MILLILITERS_PER_SECOND_PUMPED
+        return timedelta(seconds=seconds)
 
     def water_pump_on(self) -> bool:
         if not self._running:

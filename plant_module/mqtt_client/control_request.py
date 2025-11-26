@@ -104,25 +104,28 @@ class LightControlRequest(BaseModel):
 
 '''
 Examples:
-    - Water the plant tomorrow at 20:00
+    - Water the plant tomorrow at 20:00 with 100 ml
     {
         "actuator": "water_pump",
         "command": "on",
+        "volume": 100,
         "scheduled_time": {
             "start_time": "2023-04-02T20:00:00",
             "repeat_interval": null
         }
     }
     
-    - Water the plant now
+    - Water the plant now with 100 ml
     {
         "actuator": "water_pump",
+        "volume": 100,
         "command": "on"
     }
     
-    - Water the plant every day at 6:00
+    - Water the plant every day at 6:00 with 100 ml
     {
         "actuator": "water_pump",
+        "volume": 100,
         "command": "on",
         "scheduled_time": {
             "start_time": "2023-04-01T06:00:00",
@@ -130,16 +133,18 @@ Examples:
         }
     }
     
-    - Water the plant now and every 24h from now 
+    - Water the plant now and every 24h from now with 100 ml
     (for all scheduled actions you have to include scheduled_time and start_time)
     {
         "actuator": "water_pump",
         "command": "on",
+        "volume": 100,
         "scheduled_time": {
             "start_time": "now",
             "repeat_interval": "P1D"
         }
     }
+    
     
 QUESTION:
     What do if command is "off"? 🤔🤔🤔
@@ -147,6 +152,7 @@ QUESTION:
 class WaterPumpControlRequest(BaseModel):
     actuator: Literal["water_pump"]
     command: Command
+    volume: int
     scheduled_time: ImpulseScheduledTime | None = None
 
 ControlRequest = Annotated[LightControlRequest | WaterPumpControlRequest, A]

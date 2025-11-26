@@ -11,7 +11,6 @@ from plant_module.mqtt_client.mqtt_handler import MQTTHandler
 import asyncio
 import time
 
-from .mock_sensors import WATER_PULSE_DURATION, WaterPump, LightBulb
 from .schedule import Scheduler, ScheduledEvent
 
 
@@ -32,10 +31,6 @@ class ControlManager(MQTTHandler):
         self.control_topic: str = f"/{self.pot_id}/control"
         self.SENSOR_TOPIC_PREFIX: str = f"{self.pot_id}/sensors"
         self.if_sensors_publishing: bool = False
-        self.water_pump: WaterPump = WaterPump()
-        self.water_pump.setup()
-        self.light_bulb: LightBulb = LightBulb()
-        self.light_bulb.setup()
         self.scheduler: Scheduler = Scheduler()
         self.scheduler_task: Task[None] = asyncio.create_task(self.scheduler.run())
         controller = SensorsController()
@@ -128,12 +123,13 @@ class ControlManager(MQTTHandler):
             self.controller.water_pump_on()
         def off_action():
             self.controller.water_pump_off()
+        pulse_duration = SensorsController.get_water_pump_activation_duration(request.volume)
         if not request.scheduled_time:
             try:
                 if request.command == "on":
                     on_action()
                     await self.scheduler.add_event(
-                        ScheduledEvent(datetime.now() + WATER_PULSE_DURATION, off_action)
+                        ScheduledEvent(datetime.now() + pulse_duration, off_action)
                     )
                 else:
                     off_action()
@@ -157,7 +153,7 @@ class ControlManager(MQTTHandler):
             ScheduledEvent(start_time, on_action, repeat_interval)
         )
         await self.scheduler.add_event(
-            ScheduledEvent(start_time + WATER_PULSE_DURATION, off_action, repeat_interval)
+            ScheduledEvent(start_time + pulse_duration, off_action, repeat_interval)
         )
         
         
