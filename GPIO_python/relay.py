@@ -23,6 +23,7 @@ class RelayThread(threading.Thread):
                 elif cmd == "off":
                     GPIO.output(RELAY_PIN, GPIO.HIGH)
                 elif cmd == "exit":
+                    GPIO.output(RELAY_PIN, GPIO.HIGH)
                     break
             except queue.Empty:
                 continue

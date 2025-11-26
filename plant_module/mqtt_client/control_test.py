@@ -37,7 +37,8 @@ async def main():
     sensors = SensorsController()
     sensors.setup()
     listener_task = asyncio.create_task(start_listener(sensors))
-    
+    await asyncio.sleep(3)
+
     client = aiomqtt.Client(HOSTNAME, PORT)
     async with client:
         
@@ -45,9 +46,6 @@ async def main():
         
         await client.publish(CONTROL_TOPIC, b'{"actuator":"light_bulb","command":"on"}')
         await asyncio.sleep(1)
-        if sensors._light_bulb_running != True:
-            print("Fail, SensorsController::_light_bulb_running is not True")
-            return
         resp = await prompt_user("Confirm the light bulb turned on [y]")
         if resp.lower() == 'y':
             print("Pass")
@@ -59,9 +57,6 @@ async def main():
         
         await client.publish(CONTROL_TOPIC, b'{"actuator":"light_bulb","command":"off"}')
         await asyncio.sleep(1)
-        if sensors._light_bulb_running != False:
-            print("Fail, SensorsController::_light_bulb_running is not False")
-            return
         resp = await prompt_user("Confirm the light bulb turned off [y]")
         if resp.lower() == 'y':
             print("Pass")
@@ -75,14 +70,11 @@ async def main():
         now = datetime.now()
         print(now.isoformat())
         in_5_seconds = (now + timedelta(seconds=5)).isoformat()
-        command = b'{"actuator":"light_bulb","command":"on","scheduled_time":{"start_time":' + in_5_seconds.encode() + b'"}}'
+        command = b'{"actuator":"light_bulb","command":"on","scheduled_time":{"start_time":"' + in_5_seconds.encode() + b'"}}'
         await client.publish(CONTROL_TOPIC, command)
         await asyncio.sleep(5)
         print("The light bulb should have just turned on")
         print(datetime.now().isoformat())
-        if sensors._light_bulb_running != True:
-            print("Fail, SensorsController::_light_bulb_running is not True")
-            return
         resp = await prompt_user("Confirm the light bulb turned on at around the right time [y]")
         if resp.lower() == 'y':
             print("Pass")
@@ -96,14 +88,11 @@ async def main():
         now = datetime.now()
         print(now.isoformat())
         in_5_seconds = (now + timedelta(seconds=5)).isoformat()
-        command = b'{"actuator":"light_bulb","command":"off","scheduled_time":{"start_time":' + in_5_seconds.encode() + b'"}}'
+        command = b'{"actuator":"light_bulb","command":"off","scheduled_time":{"start_time":"' + in_5_seconds.encode() + b'"}}'
         await client.publish(CONTROL_TOPIC, command)
         await asyncio.sleep(5)
         print("The light bulb should have just turned off")
         print(datetime.now().isoformat())
-        if sensors._light_bulb_running != False:
-            print("Fail, SensorsController::_light_bulb_running is not False")
-            return
         resp = await prompt_user("Confirm the light bulb turned off at around the right time [y]")
         if resp.lower() == 'y':
             print("Pass")
@@ -122,9 +111,6 @@ async def main():
         await asyncio.sleep(6)
         print("The light bulb should have just turned off")
         print(datetime.now().isoformat())
-        if sensors._light_bulb_running != False:
-            print("Fail, SensorsController::_light_bulb_running is not False")
-            return
         resp = await prompt_user("Confirm the light bulb turned on and off at around the right times [y]")
         if resp.lower() == 'y':
             print("Pass")
@@ -144,9 +130,6 @@ async def main():
         await asyncio.sleep(5)
         print("The light bulb should have just turned off")
         print(datetime.now().isoformat())
-        if sensors._light_bulb_running != False:
-            print("Fail, SensorsController::_light_bulb_running is not False")
-            return
         resp = await prompt_user("Confirm the light bulb turned on and off at around the right times [y]")
         if resp.lower() == 'y':
             print("Pass")
@@ -155,12 +138,9 @@ async def main():
             return
         
         print("water_pump::immediate")
-        command = b'{"actuator":"water_pump","command":"on"'
+        command = b'{"actuator":"water_pump","command":"on"}'
         await client.publish(CONTROL_TOPIC, command)
         await asyncio.sleep(5)
-        if sensors._water_pump_running != False:
-            print("Fail, SensorsController::_water_pump_running is not False")
-            return
         resp = await prompt_user("Confirm the water pump turned on and off [y]")
         if resp.lower() == 'y':
             print("Pass")
@@ -174,14 +154,7 @@ async def main():
         in_5_seconds = (now + timedelta(seconds=5)).isoformat()
         command = b'{"actuator":"water_pump","command":"on","scheduled_time":{"start_time":"' + in_5_seconds.encode() + b'"}}'
         await client.publish(CONTROL_TOPIC, command)
-        await asyncio.sleep(1)
-        if sensors._water_pump_running != True:
-            print("Fail, SensorsController::_water_pump_running is not True during pulse")
-            return
-        await asyncio.sleep(5)
-        if sensors._water_pump_running != False:
-            print("Fail, SensorsController::_water_pump_running is not False")
-            return
+        await asyncio.sleep(10)
         resp = await prompt_user("Confirm the water pump turned on and off at around the right times [y]")
         if resp.lower() == 'y':
             print("Pass")

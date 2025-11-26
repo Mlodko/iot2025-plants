@@ -21,6 +21,7 @@ class MotorThread(threading.Thread):
                 elif cmd == "off":
                     GPIO.output(PWM_PIN, GPIO.LOW)    # 0V
                 elif cmd == "exit":
+                    GPIO.output(PWM_PIN, GPIO.LOW)
                     break
             except queue.Empty:
                 continue
