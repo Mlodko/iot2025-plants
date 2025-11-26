@@ -15,6 +15,7 @@ class MotorThread(threading.Thread):
         self.running = True
         GPIO.setup(PWM_PIN, GPIO.OUT)
         self.pwm = GPIO.PWM(PWM_PIN, FREQUENCY)
+        print(f"PWM object {self.pwm} created")
         self.pwm.start(0)
 
     def run(self):
@@ -33,6 +34,7 @@ class MotorThread(threading.Thread):
         # Cleanup on exit
         self.pwm.ChangeDutyCycle(0)
         self.pwm.stop()
+        print(f"PWM object {self.pwm} stopped")
 
     def turn_on(self):
         self.cmd_queue.put("on")
