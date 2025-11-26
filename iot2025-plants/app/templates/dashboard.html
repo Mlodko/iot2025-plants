@@ -37,6 +37,31 @@
       border-color: #8b7d6b;
       box-shadow: 0 0 3px rgba(139, 125, 107, 0.3);
     }
+    .row-eq-height {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+  /* To sprawia, że kolumny stają się kontenerami flex */
+  .row-eq-height > [class*='col-'] {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* To sprawia, że karta rozciąga się na całą dostępną wysokość kolumny */
+  .row-eq-height > [class*='col-'] .card {
+    flex: 1;
+    width: 100%; /* Dla pewności */
+  }
+  
+  /* Wyjątek dla prawej kolumny (tam gdzie są dwie karty) */
+  /* Dzięki temu odstęp między nimi będzie zachowany */
+  .row-eq-height > [class*='col-'] .card + .card {
+      margin-top: 20px; /* Dodatkowy odstęp jeśli karty się skleją */
+  }
   </style>
 </head>
 
@@ -187,7 +212,7 @@
           </div>
 
           <!-- Automated Watering & Lighting -->
-          <div class="row">
+          <div class="row row-eq-height">
             <!-- Watering -->
               <div class="col-md-4">
                   <div class="card">
@@ -359,3 +384,4 @@
 
 </body>
 </html>
+
