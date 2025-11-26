@@ -18,6 +18,8 @@ CONTROL_TOPIC = f"/{POT_CONFIG.pot_id}/control"
 async def start_listener(sensors: SensorsController):
     dispatcher = MQTTDispatcher(HOSTNAME, PORT, POT_CONFIG)
     control_manager = ControlManager(POT_CONFIG, dispatcher.client)
+    control_manager.controller.close()
+    await asyncio.sleep(1)
     control_manager.controller = sensors # Change to external so that we can read the state of devices
     dispatcher.add_handler(CONTROL_TOPIC, control_manager)
     async with dispatcher.client:
