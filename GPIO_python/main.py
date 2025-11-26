@@ -2,11 +2,11 @@ import threading
 import time
 import RPi.GPIO as GPIO
 
-from distance_sensor import get_distance
-from air_temp_moisture import read_air_sensor_data
-from analog_inputs import read_channel, Channel
-from relay import RelayThread
-from motor import MotorThread
+from .distance_sensor import get_distance
+from .air_temp_moisture import read_air_sensor_data
+from .analog_inputs import read_channel, Channel
+from .relay import RelayThread
+from .motor import MotorThread
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
