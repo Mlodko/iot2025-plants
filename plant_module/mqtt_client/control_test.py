@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import threading
 from uuid import UUID
 
+
+import RPi.GPIO as GPIO
 import aiomqtt
 from plant_module.mqtt_client.control_manager import ControlManager
 from plant_module.mqtt_client.mqtt_dispatcher import MQTTDispatcher
@@ -31,7 +33,9 @@ async def prompt_user(prompt: str) -> str:
     return await loop.run_in_executor(None, input, prompt)
         
 async def main():
+    GPIO.setmode(GPIO.BCM)
     sensors = SensorsController()
+    sensors.setup()
     listener_task = asyncio.create_task(start_listener(sensors))
     
     client = aiomqtt.Client(HOSTNAME, PORT)
