@@ -24,6 +24,11 @@ command_schema = {
     "properties": {
         "actuator": {"type": "string"},
         "command": {"type": "string"},
+        "volume": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Water Volume (ml)"
+        },
         "scheduled_time": {
             "$ref": "#/$defs/DurationScheduledTime"
         }
@@ -33,42 +38,56 @@ command_schema = {
     "$defs": {
         "DurationScheduledTime": {
             "type": "object",
+            "title": "DurationScheduledTime",
             "properties": {
                 "start_time": {
                     "anyOf": [
                         {"type": "string", "format": "date-time"},
                         {"type": "string", "const": "now"}
-                    ]
+                    ],
+                    "title": "Start Time"
                 },
                 "end_time": {
                     "anyOf": [
                         {"type": "string", "format": "date-time"},
                         {"type": "null"}
                     ],
-                    "default": None
+                    "default": None,
+                    "title": "End Time"
                 },
                 "duration": {
                     "anyOf": [
                         {"type": "string", "format": "duration"},
                         {"type": "null"}
                     ],
-                    "default": None
+                    "default": None,
+                    "title": "Duration"
                 },
                 "repeat_interval": {
                     "anyOf": [
                         {"type": "string", "format": "duration"},
                         {"type": "null"}
                     ],
-                    "default": None
+                    "default": None,
+                    "title": "Repeat Interval"
                 }
             },
-            "anyOf": [
-                {"required": ["end_time"], "not": {"required": ["duration"]}},
-                {"required": ["duration"], "not": {"required": ["end_time"]}},
-                {"required": ["start_time"], "not": {"required": ["end_time", "duration"]}}
-            ],
             "required": ["start_time"],
-            "additionalProperties": False
+            "additionalProperties": False,
+            "oneOf": [
+                {
+                    "required": ["end_time"],
+                    "not": {"required": ["duration"]}
+                },
+                {
+                    "required": ["duration"],
+                    "not": {"required": ["end_time"]}
+                },
+                {
+                    "required": ["start_time"],
+                    "not": {"required": ["end_time", "duration"]}
+                }
+            ]
         }
     }
 }
