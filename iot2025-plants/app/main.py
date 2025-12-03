@@ -62,6 +62,7 @@ class Device(Base):
     __tablename__ = "devices"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, unique=True)
+    label = Column(Text, nullable=True)
     ip = Column(String, nullable=True)
     mac = Column(String, nullable=True, index=True)
     software_version = Column(String, nullable=True)
