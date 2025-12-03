@@ -62,6 +62,7 @@ class Device(Base):
     __tablename__ = "devices"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, unique=True)
+    label = Column(Text, nullable=True)
     ip = Column(String, nullable=True)
     mac = Column(String, nullable=True, index=True)
     software_version = Column(String, nullable=True)
@@ -128,6 +129,16 @@ class CommandResult(Base):
 # =========================
 class DeviceCreate(BaseModel):
     name: str
+    label: Optional[str] = None
+    ip: Optional[str] = None
+    mac: Optional[str] = None
+    software_version: Optional[str] = None
+    config_json: Optional[Dict[str, Any]] = None
+
+
+class DeviceUpdate(BaseModel):
+    name: Optional[str] = None
+    label: Optional[str] = None
     ip: Optional[str] = None
     mac: Optional[str] = None
     software_version: Optional[str] = None
@@ -408,11 +419,39 @@ def paginate(query, page: int, page_size: int):
 
 
 # =========================
+# Database Migrations
+# =========================
+def migrate_database():
+    """Add missing columns to existing database tables."""
+    if not settings.db_url.startswith("sqlite"):
+        return  # Only SQLite migrations for now
+    
+    from sqlalchemy import inspect, text
+    
+    try:
+        inspector = inspect(engine)
+        
+        # Check if devices table exists and add label column if missing
+        if "devices" in inspector.get_table_names():
+            columns = [col["name"] for col in inspector.get_columns("devices")]
+            
+            if "label" not in columns:
+                print("[Migration] Adding 'label' column to devices table...")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE devices ADD COLUMN label TEXT"))
+                    conn.commit()
+                print("[Migration] ✓ Successfully added 'label' column")
+    except Exception as e:
+        print(f"[Migration] Warning: Could not check/migrate database: {e}")
+
+
+# =========================
 # Startup
 # =========================
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    migrate_database()
 
 
 # =========================
@@ -506,12 +545,19 @@ def list_devices(
 @app.patch("/api/devices/{device_id}", response_model=DeviceRead)
 def update_device(
     device_id: int,
-    payload: DeviceCreate,
+    payload: DeviceUpdate,
     db: Session = Depends(get_db),
 ):
     dev = db.get(Device, device_id)
     if not dev:
         raise HTTPException(status_code=404, detail="Device not found")
+    
+    # Check if name is being changed and if it would conflict
+    if payload.name is not None and payload.name != dev.name:
+        if db.query(Device).filter(Device.name == payload.name, Device.id != device_id).first():
+            raise HTTPException(status_code=400, detail="Device name already exists")
+    
+    # Update only provided fields
     for k, v in payload.dict(exclude_unset=True).items():
         setattr(dev, k, v)
     db.commit()

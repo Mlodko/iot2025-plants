@@ -1,274 +1,407 @@
 <!DOCTYPE html>
 <html lang="pl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IoT Roślinki - Devices</title>
-<!-- CSS -->
-<link href="/static/css/main.css" rel="stylesheet" />
-<link href="/static/css/bootstrap.min.css" rel="stylesheet" />
-<link href="/static/css/animate.min.css" rel="stylesheet" />
-<link href="/static/css/paper-dashboard.css" rel="stylesheet" />
-<!-- Fonts & icons -->
-<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" crossorigin="anonymous">
-<link href="https://maxcdn.bootstrapcdn.com/font-awesome/latest/css/font-awesome.min.css" rel="stylesheet">
-<link href='https://fonts.googleapis.com/css?family=Muli:400,300' rel='stylesheet' type='text/css'>
-<link href="/static/css/themify-icons.css" rel="stylesheet">
-<!-- jQuery (jedna kopia, przed Twoim skryptem) -->
-<script src="/static/js/jquery.min.js"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IoT Roślinki - Devices</title>
+    <!-- CSS -->
+    <link href="/static/css/main.css" rel="stylesheet" />
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/css/animate.min.css" rel="stylesheet" />
+    <link href="/static/css/paper-dashboard.css" rel="stylesheet" />
+    <!-- Fonts & icons -->
+    <link
+      rel="stylesheet"
+      href="https://use.fontawesome.com/releases/v5.6.1/css/all.css"
+      crossorigin="anonymous"
+    />
+    <link
+      href="https://maxcdn.bootstrapcdn.com/font-awesome/latest/css/font-awesome.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css?family=Muli:400,300"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <link href="/static/css/themify-icons.css" rel="stylesheet" />
+    <!-- jQuery (jedna kopia, przed Twoim skryptem) -->
+    <script src="/static/js/jquery.min.js"></script>
 
-<style>
-body { background-color:#f7f5f1; font-family:'Muli','Helvetica Neue',Arial,sans-serif; color:#5a5449; }
-.sidebar .logo { text-align:center; font-weight:700; font-size:18px; padding:25px 0 15px; border-bottom:1px solid #eee; }
-.sidebar .logo a { color:#5a5449; text-decoration:none; }
-.sidebar ul.nav li.active i, .sidebar ul.nav li.active p { color:#F3BB45; }
-.main-panel { margin-left:240px; padding:40px 30px; min-height:100vh; }
-h4 { color:#5a5449; font-weight:600; margin-bottom:30px; }
-.device-card, .add-device-card {
-  background:#fff; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.05);
-  transition:transform .2s, box-shadow .2s; position:relative; height:180px; margin-bottom:20px; border:1px solid #ebe8e2;
-}
-.device-card:hover, .add-device-card:hover { transform:translateY(-3px); box-shadow:0 4px 10px rgba(0,0,0,0.08); }
-.add-device-card { display:flex; justify-content:center; align-items:center; border:1.5px dashed #c1b8a9; color:#5a5449; }
-.add-device-card i { font-size:28px; margin-top:8px; }
-.edit-input { text-align:center; border:1px solid #ccc; border-radius:6px; padding:5px 10px; width:80%; margin:10px auto; display:block; font-size:15px; }
-.edit-input:focus { outline:none; border-color:#8b7d6b; box-shadow:0 0 3px rgba(139,125,107,.3); }
-.card-controls { position:absolute; top:8px; right:12px; }
-.card-controls a { color:#777; margin-left:8px; transition:color .2s; }
-.card-controls a:hover { color:#5a5449; }
-</style>
-</head>
-<body>
-
-<!-- SIDEBAR -->
-<div class="sidebar" data-background-color="white" data-active-color="warning">
-  <div class="sidebar-wrapper">
-    <div class="logo">
-      <a href="/devices_ui" class="simple-text" style="display:flex;align-items:center;justify-content:center;gap:8px;">
-        <i class="fas fa-seedling" style="color:#2eff00;font-size:20px;"></i>
-        IoT&nbsp;Roślinki
-      </a>
-    </div>
-    <ul class="nav">
-      <li class="active"><a href="/devices_ui"><i class="fas fa-leaf"></i><p>Devices</p></a></li>
-      <li><a href="/"><i class="fas fa-tachometer-alt"></i><p>Dashboard</p></a></li>
-      <li><a href="/graph_ui"><i class="ti-pie-chart"></i><p>Graphs</p></a></li>
-    </ul>
-  </div>
-</div>
-
-<!-- MAIN -->
-<div class="main-panel">
-  <nav class="navbar navbar-default">
-    <div class="container-fluid">
-      <div class="navbar-header">
-        <button type="button" class="navbar-toggle">
-          <span class="sr-only">Toggle navigation</span>
-          <span class="icon-bar bar1"></span>
-          <span class="icon-bar bar2"></span>
-          <span class="icon-bar bar3"></span>
-        </button>
-        <a class="navbar-brand" href="#">Devices</a>
+    <style>
+      body {
+        background-color: #f7f5f1;
+        font-family: "Muli", "Helvetica Neue", Arial, sans-serif;
+        color: #5a5449;
+      }
+      .sidebar .logo {
+        text-align: center;
+        font-weight: 700;
+        font-size: 18px;
+        padding: 25px 0 15px;
+        border-bottom: 1px solid #eee;
+      }
+      .sidebar .logo a {
+        color: #5a5449;
+        text-decoration: none;
+      }
+      .sidebar ul.nav li.active i,
+      .sidebar ul.nav li.active p {
+        color: #f3bb45;
+      }
+      .main-panel {
+        margin-left: 240px;
+        padding: 40px 30px;
+        min-height: 100vh;
+      }
+      h4 {
+        color: #5a5449;
+        font-weight: 600;
+        margin-bottom: 30px;
+      }
+      .device-card,
+      .add-device-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+        height: 180px;
+        margin-bottom: 20px;
+        border: 1px solid #ebe8e2;
+      }
+      .device-card:hover,
+      .add-device-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      }
+      .add-device-card {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1.5px dashed #c1b8a9;
+        color: #5a5449;
+      }
+      .add-device-card i {
+        font-size: 28px;
+        margin-top: 8px;
+      }
+      .edit-input {
+        text-align: center;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 5px 10px;
+        width: 80%;
+        margin: 10px auto;
+        display: block;
+        font-size: 15px;
+      }
+      .edit-input:focus {
+        outline: none;
+        border-color: #8b7d6b;
+        box-shadow: 0 0 3px rgba(139, 125, 107, 0.3);
+      }
+      .card-controls {
+        position: absolute;
+        top: 8px;
+        right: 12px;
+      }
+      .card-controls a {
+        color: #777;
+        margin-left: 8px;
+        transition: color 0.2s;
+      }
+      .card-controls a:hover {
+        color: #5a5449;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- SIDEBAR -->
+    <div
+      class="sidebar"
+      data-background-color="white"
+      data-active-color="warning"
+    >
+      <div class="sidebar-wrapper">
+        <div class="logo">
+          <a
+            href="/devices_ui"
+            class="simple-text"
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+            "
+          >
+            <i
+              class="fas fa-seedling"
+              style="color: #2eff00; font-size: 20px"
+            ></i>
+            IoT&nbsp;Roślinki
+          </a>
+        </div>
+        <ul class="nav">
+          <li class="active">
+            <a href="/devices_ui"
+              ><i class="fas fa-leaf"></i>
+              <p>Devices</p></a
+            >
+          </li>
+          <li>
+            <a href="/"
+              ><i class="fas fa-tachometer-alt"></i>
+              <p>Dashboard</p></a
+            >
+          </li>
+          <li>
+            <a href="/graph_ui"
+              ><i class="ti-pie-chart"></i>
+              <p>Graphs</p></a
+            >
+          </li>
+        </ul>
       </div>
     </div>
-  </nav>
 
-  <div class="content">
-    <div class="container-fluid">
-      <div class="row" id="devicesContainer">
-        <div class="col-md-3" id="addDeviceCard">
-          <a href="/add_device_ui" style="text-decoration:none;">
-            <div class="card add-device-card">
-              <div class="content text-center">
-                <h5>Add Device</h5>
-                <i class="fas fa-plus"></i>
-              </div>
+    <!-- MAIN -->
+    <div class="main-panel">
+      <nav class="navbar navbar-default">
+        <div class="container-fluid">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar bar1"></span>
+              <span class="icon-bar bar2"></span>
+              <span class="icon-bar bar3"></span>
+            </button>
+            <a class="navbar-brand" href="#">Devices</a>
+          </div>
+        </div>
+      </nav>
+
+      <div class="content">
+        <div class="container-fluid">
+          <div class="row" id="devicesContainer">
+            <div class="col-md-3" id="addDeviceCard">
+              <a href="/add_device_ui" style="text-decoration: none">
+                <div class="card add-device-card">
+                  <div class="content text-center">
+                    <h5>Add Device</h5>
+                    <i class="fas fa-plus"></i>
+                  </div>
+                </div>
+              </a>
             </div>
-          </a>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const container = document.getElementById("devicesContainer");
-  const addCard = document.getElementById("addDeviceCard");
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const container = document.getElementById("devicesContainer");
+        const addCard = document.getElementById("addDeviceCard");
 
-  function escapeHtml(text) {
-    if (text === null || text === undefined) return "";
-    return String(text)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
+        function escapeHtml(text) {
+          if (text === null || text === undefined) return "";
+          return String(text)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+        }
 
-  // 1) Karta urządzenia
-  function createDeviceCard(device) {
-    const isConnected = !!device.last_seen;
-    const statusTxt = isConnected ? "connected" : "offline";
-    const statusColor = isConnected ? "green" : "red";
-    const statusIcon = isConnected ? "fa-link" : "fa-unlink";
+        // 1) Karta urządzenia
+        function createDeviceCard(device) {
+          const isConnected = !!device.last_seen;
+          const statusTxt = isConnected ? "connected" : "offline";
+          const statusColor = isConnected ? "green" : "red";
+          const statusIcon = isConnected ? "fa-link" : "fa-unlink";
 
-    const col = document.createElement("div");
-    col.className = "col-md-3";
-    col.dataset.deviceId = device.id;
+          const col = document.createElement("div");
+          col.className = "col-md-3";
+          col.dataset.deviceId = device.id;
 
-    const cardInner = document.createElement("div");
-    cardInner.className = "card device-card";
+          const cardInner = document.createElement("div");
+          cardInner.className = "card device-card";
 
-    const controls = document.createElement("div");
-    controls.className = "card-controls";
-    controls.innerHTML = `
+          const controls = document.createElement("div");
+          controls.className = "card-controls";
+          controls.innerHTML = `
       <a href="#" class="edit-btn" title="Edit"><i class="fas fa-edit"></i></a>
       <a href="#" class="delete-btn" title="Delete"><i class="fas fa-trash"></i></a>
     `;
 
-    const content = document.createElement("div");
-    content.className = "content text-center";
-    content.innerHTML = `
-      <h5 class="device-name" style="margin-top:10px;">${escapeHtml(device.name)}</h5>
+          const content = document.createElement("div");
+          content.className = "content text-center";
+          const displayLabel = device.label || device.name;
+          content.innerHTML = `
+      <h5 class="device-label" style="margin-top:10px;">${escapeHtml(
+        displayLabel
+      )}</h5>
       <p style="font-size:13px;">IP: ${escapeHtml(device.ip) || "-"}</p>
       <p style="font-size:13px;">MAC: ${escapeHtml(device.mac) || "-"}</p>
-      <p style="font-size:13px;">FW: ${escapeHtml(device.software_version) || "-"}</p>
+      <p style="font-size:13px;">FW: ${
+        escapeHtml(device.software_version) || "-"
+      }</p>
       <p style="font-size:13px;color:${statusColor};">
         <i class="fas ${statusIcon}"></i> ${statusTxt}
       </p>
     `;
 
-    cardInner.appendChild(controls);
-    cardInner.appendChild(content);
-    col.appendChild(cardInner);
+          cardInner.appendChild(controls);
+          cardInner.appendChild(content);
+          col.appendChild(cardInner);
 
-    // EDIT
-    controls.querySelector(".edit-btn").addEventListener("click", (e) => {
-      e.preventDefault();
-      const nameEl = content.querySelector(".device-name");
-      if (!nameEl) return;
-      if (cardInner.querySelector(".edit-input")) return;
+          // EDIT
+          controls.querySelector(".edit-btn").addEventListener("click", (e) => {
+            e.preventDefault();
+            const labelEl = content.querySelector(".device-label");
+            if (!labelEl) return;
+            if (cardInner.querySelector(".edit-input")) return;
 
-      const currentName = nameEl.textContent.trim();
-      const input = document.createElement("input");
-      input.type = "text";
-      input.value = currentName;
-      input.className = "edit-input";
-      nameEl.replaceWith(input);
-      input.focus();
+            const currentLabel = labelEl.textContent.trim();
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = currentLabel;
+            input.className = "edit-input";
+            labelEl.replaceWith(input);
+            input.focus();
 
-      function restoreName(txt) {
-        const newEl = document.createElement("h5");
-        newEl.className = "device-name";
-        newEl.style.marginTop = "10px";
-        newEl.textContent = txt;
-        input.replaceWith(newEl);
-      }
+            function restoreLabel(txt) {
+              const newEl = document.createElement("h5");
+              newEl.className = "device-label";
+              newEl.style.marginTop = "10px";
+              newEl.textContent = txt;
+              input.replaceWith(newEl);
+            }
 
-      function save() {
-        const newName = input.value.trim() || currentName;
-        if (newName === currentName) return restoreName(newName);
+            function save() {
+              const newLabel = input.value.trim() || currentLabel;
+              if (newLabel === currentLabel) return restoreLabel(newLabel);
 
-        $.ajax({
-          url: "/api/devices/" + device.id,
-          method: "PATCH",
-          contentType: "application/json",
-          data: JSON.stringify({ name: newName }),
-        })
-        .done((updatedDev) => restoreName(updatedDev.name || newName))
-        .fail((xhr) => {
-          console.error("PATCH error", xhr);
-          alert("Nie udało się zaktualizować nazwy :(");
-          restoreName(currentName);
-        });
-      }
+              $.ajax({
+                url: "/api/devices/" + device.id,
+                method: "PATCH",
+                contentType: "application/json",
+                data: JSON.stringify({ label: newLabel }),
+              })
+                .done((updatedDev) => {
+                  const displayLabel = updatedDev.label || updatedDev.name;
+                  restoreLabel(displayLabel);
+                  // Update device object for future reference
+                  device.label = updatedDev.label;
+                })
+                .fail((xhr) => {
+                  console.error("PATCH error", xhr);
+                  alert("Nie udało się zaktualizować etykiety :(");
+                  restoreLabel(currentLabel);
+                });
+            }
 
-      input.addEventListener("blur", save);
-      input.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter") save();
-        else if (ev.key === "Escape") restoreName(currentName);
-      });
-    });
+            input.addEventListener("blur", save);
+            input.addEventListener("keydown", (ev) => {
+              if (ev.key === "Enter") save();
+              else if (ev.key === "Escape") restoreLabel(currentLabel);
+            });
+          });
 
-    // DELETE
-    controls.querySelector(".delete-btn").addEventListener("click", (e) => {
-      e.preventDefault();
-      if (!confirm(`Usunąć urządzenie "${device.name}"? Spowoduje to także usunięcie jego sensorów, odczytów i komend.`)) return;
+          // DELETE
+          controls
+            .querySelector(".delete-btn")
+            .addEventListener("click", (e) => {
+              e.preventDefault();
+              const displayLabel = device.label || device.name;
+              if (
+                !confirm(
+                  `Usunąć urządzenie "${displayLabel}"? Spowoduje to także usunięcie jego sensorów, odczytów i komend.`
+                )
+              )
+                return;
 
-      fetch(`/api/devices/${device.id}`, { method: "DELETE" })
-        .then(async (res) => {
-          if (!res.ok) {
-            let msg = `DELETE failed (${res.status})`;
-            try { const data = await res.json(); if (data?.detail) msg = data.detail; } catch(_) {}
-            throw new Error(msg);
-          }
-          return res.json();
-        })
-        .then(() => {
-          col.remove();
-          const onlyAddLeft = [...container.children].every(ch => ch.id === "addDeviceCard");
-          if (onlyAddLeft) {
+              fetch(`/api/devices/${device.id}`, { method: "DELETE" })
+                .then(async (res) => {
+                  if (!res.ok) {
+                    let msg = `DELETE failed (${res.status})`;
+                    try {
+                      const data = await res.json();
+                      if (data?.detail) msg = data.detail;
+                    } catch (_) {}
+                    throw new Error(msg);
+                  }
+                  return res.json();
+                })
+                .then(() => {
+                  col.remove();
+                  const onlyAddLeft = [...container.children].every(
+                    (ch) => ch.id === "addDeviceCard"
+                  );
+                  if (onlyAddLeft) {
+                    const msg = document.createElement("p");
+                    msg.style.color = "#777";
+                    msg.style.marginLeft = "10px";
+                    msg.textContent =
+                      "Brak urządzeń. Dodaj nowe klikając 'Add Device'.";
+                    container.insertBefore(msg, addCard);
+                  }
+                })
+                .catch((err) => {
+                  console.error(err);
+                  alert("Nie udało się usunąć: " + err.message);
+                });
+            });
+
+          return col; // <- WAŻNE
+        } // <-- DOMKNIĘCIE createDeviceCard
+
+        // 2) Render listy
+        function renderDevices(devices) {
+          // usuń wszystko poza kartą Add
+          [...container.children].forEach((child) => {
+            if (child.id !== "addDeviceCard") child.remove();
+          });
+
+          if (!devices.length) {
             const msg = document.createElement("p");
             msg.style.color = "#777";
             msg.style.marginLeft = "10px";
-            msg.textContent = "Brak urządzeń. Dodaj nowe klikając 'Add Device'.";
+            msg.textContent =
+              "Brak urządzeń. Dodaj nowe klikając 'Add Device'.";
             container.insertBefore(msg, addCard);
+            return;
           }
-        })
-        .catch((err) => {
-          console.error(err);
-          alert("Nie udało się usunąć: " + err.message);
-        });
-    });
 
-    return col;  // <- WAŻNE
-  } // <-- DOMKNIĘCIE createDeviceCard
+          devices.forEach((dev) => {
+            const card = createDeviceCard(dev);
+            container.insertBefore(card, addCard);
+          });
+        }
 
-  // 2) Render listy
-  function renderDevices(devices) {
-    // usuń wszystko poza kartą Add
-    [...container.children].forEach(child => {
-      if (child.id !== "addDeviceCard") child.remove();
-    });
+        // 3) Pobierz z API
+        function loadDevicesFromAPI() {
+          $.get("/api/devices")
+            .done((devices) => renderDevices(devices))
+            .fail((err) => {
+              console.error("Nie udało się pobrać /api/devices", err);
+              const msg = document.createElement("p");
+              msg.style.color = "red";
+              msg.style.marginLeft = "10px";
+              msg.textContent = "Błąd pobierania urządzeń z API.";
+              container.insertBefore(msg, addCard);
+            });
+        }
 
-    if (!devices.length) {
-      const msg = document.createElement("p");
-      msg.style.color = "#777";
-      msg.style.marginLeft = "10px";
-      msg.textContent = "Brak urządzeń. Dodaj nowe klikając 'Add Device'.";
-      container.insertBefore(msg, addCard);
-      return;
-    }
-
-    devices.forEach((dev) => {
-      const card = createDeviceCard(dev);
-      container.insertBefore(card, addCard);
-    });
-  }
-
-  // 3) Pobierz z API
-  function loadDevicesFromAPI() {
-    $.get("/api/devices")
-      .done((devices) => renderDevices(devices))
-      .fail((err) => {
-        console.error("Nie udało się pobrać /api/devices", err);
-        const msg = document.createElement("p");
-        msg.style.color = "red";
-        msg.style.marginLeft = "10px";
-        msg.textContent = "Błąd pobierania urządzeń z API.";
-        container.insertBefore(msg, addCard);
+        loadDevicesFromAPI();
       });
-  }
+    </script>
 
-  loadDevicesFromAPI();
-});
-</script>
-
-<!-- Scripts -->
-<script src="/static/js/bootstrap.min.js"></script>
-<script src="/static/js/chartist.min.js"></script>
-<script src="/static/js/paper-dashboard.js"></script>
-<script src="/static/js/bootstrap-checkbox-radio.js"></script>
-</body>
+    <!-- Scripts -->
+    <script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/chartist.min.js"></script>
+    <script src="/static/js/paper-dashboard.js"></script>
+    <script src="/static/js/bootstrap-checkbox-radio.js"></script>
+  </body>
 </html>
