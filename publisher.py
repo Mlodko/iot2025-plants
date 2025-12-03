@@ -20,36 +20,33 @@ devices = meta.tables.get("devices")
 
 # JSON Schema dla payload_json
 command_schema = {
-    "type": "object",
-    "properties": {
-        "actuator": {"type": "string"},
-        "command": {"type": "string"},
-        "volume": {
-            "type": "integer",
-            "minimum": 1,
-            "title": "Water Volume (ml)"
-        },
-        "scheduled_time": {
-            "$ref": "#/$defs/DurationScheduledTime"
-        }
-    },
-    "required": ["actuator", "command"],
-    "additionalProperties": False,
     "$defs": {
         "DurationScheduledTime": {
-            "type": "object",
-            "title": "DurationScheduledTime",
+            "oneOf": [
+                {
+                    "not": {"required": ["duration"]},
+                    "required": ["end_time"]
+                },
+                {
+                    "not": {"required": ["end_time"]},
+                    "required": ["duration"]
+                },
+                {
+                    "not": {"required": ["end_time", "duration"]},
+                    "required": ["start_time"]
+                }
+            ],
             "properties": {
                 "start_time": {
                     "anyOf": [
-                        {"type": "string", "format": "date-time"},
-                        {"type": "string", "const": "now"}
+                        {"format": "date-time", "type": "string"},
+                        {"const": "now", "type": "string"}
                     ],
                     "title": "Start Time"
                 },
                 "end_time": {
                     "anyOf": [
-                        {"type": "string", "format": "date-time"},
+                        {"format": "date-time", "type": "string"},
                         {"type": "null"}
                     ],
                     "default": None,
@@ -57,7 +54,7 @@ command_schema = {
                 },
                 "duration": {
                     "anyOf": [
-                        {"type": "string", "format": "duration"},
+                        {"format": "duration", "type": "string"},
                         {"type": "null"}
                     ],
                     "default": None,
@@ -65,7 +62,7 @@ command_schema = {
                 },
                 "repeat_interval": {
                     "anyOf": [
-                        {"type": "string", "format": "duration"},
+                        {"format": "duration", "type": "string"},
                         {"type": "null"}
                     ],
                     "default": None,
@@ -73,23 +70,92 @@ command_schema = {
                 }
             },
             "required": ["start_time"],
-            "additionalProperties": False,
-            "oneOf": [
-                {
-                    "required": ["end_time"],
-                    "not": {"required": ["duration"]}
+            "title": "DurationScheduledTime",
+            "type": "object"
+        },
+
+        "ImpulseScheduledTime": {
+            "properties": {
+                "start_time": {
+                    "anyOf": [
+                        {"format": "date-time", "type": "string"},
+                        {"const": "now", "type": "string"}
+                    ],
+                    "title": "Start Time"
                 },
-                {
-                    "required": ["duration"],
-                    "not": {"required": ["end_time"]}
-                },
-                {
-                    "required": ["start_time"],
-                    "not": {"required": ["end_time", "duration"]}
+                "repeat_interval": {
+                    "anyOf": [
+                        {"format": "duration", "type": "string"},
+                        {"type": "null"}
+                    ],
+                    "default": None,
+                    "title": "Repeat Interval"
                 }
-            ]
+            },
+            "required": ["start_time"],
+            "title": "ImpulseScheduledTime",
+            "type": "object"
+        },
+
+        "LightControlRequest": {
+            "properties": {
+                "actuator": {
+                    "const": "light_bulb",
+                    "title": "Actuator",
+                    "type": "string"
+                },
+                "command": {
+                    "enum": ["on", "off"],
+                    "title": "Command",
+                    "type": "string"
+                },
+                "scheduled_time": {
+                    "anyOf": [
+                        {"$ref": "#/$defs/DurationScheduledTime"},
+                        {"type": "null"}
+                    ],
+                    "default": None
+                }
+            },
+            "required": ["actuator", "command"],
+            "title": "LightControlRequest",
+            "type": "object"
+        },
+
+        "WaterPumpControlRequest": {
+            "properties": {
+                "actuator": {
+                    "const": "water_pump",
+                    "title": "Actuator",
+                    "type": "string"
+                },
+                "command": {
+                    "enum": ["on", "off"],
+                    "title": "Command",
+                    "type": "string"
+                },
+                "volume": {
+                    "title": "Volume",
+                    "type": "integer"
+                },
+                "scheduled_time": {
+                    "anyOf": [
+                        {"$ref": "#/$defs/ImpulseScheduledTime"},
+                        {"type": "null"}
+                    ],
+                    "default": None
+                }
+            },
+            "required": ["actuator", "command", "volume"],
+            "title": "WaterPumpControlRequest",
+            "type": "object"
         }
-    }
+    },
+
+    "anyOf": [
+        {"$ref": "#/$defs/LightControlRequest"},
+        {"$ref": "#/$defs/WaterPumpControlRequest"}
+    ]
 }
 
 # Funkcje bazy danych
