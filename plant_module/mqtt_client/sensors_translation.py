@@ -17,8 +17,10 @@ READINGS_VALID_RANGES = {
 
 class SensorsController:
     def __init__(self):
+        import RPi.GPIO as GPIO
         from GPIO_python.motor import MotorThread
         from GPIO_python.relay import RelayThread
+        GPIO.setmode(GPIO.BCM)
         self.water_pump: MotorThread = MotorThread()
         self.light_bulb: RelayThread = RelayThread()
         self._running: bool = False

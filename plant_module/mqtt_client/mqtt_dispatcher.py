@@ -13,8 +13,11 @@ from plant_module.mqtt_client.control_manager import ControlManager
 
 '''This class is responsible for managing MQTT client connections and message dispatching to handlers.'''
 class MQTTDispatcher:
-    def __init__(self, hostname: str = "localhost", port: int=1883, pot_config: PotConfig = PotConfig.load_from_file() or PotConfig()) -> None:
-        self.client: Client = Client(hostname, port)
+    def __init__(self, hostname: str = "localhost", port: int=1883, pot_config: PotConfig = PotConfig.load_from_file() or PotConfig(), client: Client | None = None) -> None:
+        if client:
+            self.client = client
+        else:
+            self.client: Client = Client(hostname, port)
         self.pot_id = pot_config.get_pot_id()
         self._running: bool = False
         self.handlers: dict[str, tuple[MQTTHandler, Queue[bytes]]] = {}
@@ -49,13 +52,17 @@ class MQTTDispatcher:
             self.tasks[topic] = asyncio.create_task(self._process_queue(topic, handler, queue))
         
         all_topics: list[str] = [str(topic) for topic in self.handlers.keys()]
-        logging.info(f"Subscribed to topics: {all_topics}")
+        print(f"Subscribed to topics: {all_topics}")
+        print("Dispatcher theoretically started")
         async for message in self.client.messages:
+            print(message.payload)
             topic = str(message.topic)
             if topic not in all_topics:
-                logging.warning(f"Received message for unknown topic: {topic}, skipping")
+                print(f"Received message for unknown topic: {topic}, skipping")
                 continue
+            print(f"Message topic: {message.topic}")
             _, queue = self.handlers[topic]
+            print(f"Handler: {self.handlers[topic]}")
             payload: bytes = message.payload if isinstance(message.payload, bytes) else bytes(str(message.payload), 'utf-8')
             await queue.put(payload)
             
@@ -70,6 +77,7 @@ class MQTTDispatcher:
             
 async def main():
     pot_config = PotConfig.load_from_file() or PotConfig()
+    print(pot_config.get_pot_id())
     dispatcher = MQTTDispatcher(pot_config=pot_config)
     dispatcher.add_handler(f"/{pot_config.get_pot_id()}/control", ControlManager(pot_config, dispatcher.client))
     async with dispatcher.client:

@@ -31,6 +31,7 @@ class SensorPublisher:
         self.client: Client = client
         self.publishing: bool = False
         self.pot_id: UUID = pot_config.get_pot_id()
+        print(self.pot_id)
         self.publish_interval: timedelta = publish_interval
         if sensors_controller is None:
             logging.info("Using mock sensors, didn't receive SensorsController")

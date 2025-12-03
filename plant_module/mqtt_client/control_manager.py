@@ -25,7 +25,7 @@ class Sensor(StrEnum):
 
 
 class ControlManager(MQTTHandler):
-    def __init__(self, pot_config: PotConfig, client: Client) -> None:
+    def __init__(self, pot_config: PotConfig, client: Client, controller: SensorsController | None = None) -> None:
         self.pot_id: UUID = pot_config.pot_id
         self.client: Client = client
         self.control_topic: str = f"/{self.pot_id}/control"
@@ -33,12 +33,14 @@ class ControlManager(MQTTHandler):
         self.if_sensors_publishing: bool = False
         self.scheduler: Scheduler = Scheduler()
         self.scheduler_task: Task[None] = asyncio.create_task(self.scheduler.run())
-        controller = SensorsController()
-        controller.setup()
+        if not controller:
+            controller = SensorsController()
+            controller.setup()
         self.controller = controller
         
     async def handle_message(self, topic: str, payload: bytes) -> None:
         request = self._decode_payload(payload)
+        print(f"Control manager handling request: {request}")
         if isinstance(request, LightControlRequest):
             self._handle_light_control_request(request)
         else:
@@ -105,6 +107,7 @@ class ControlManager(MQTTHandler):
             )
     
     def _handle_light_control_request(self, request: LightControlRequest) -> None:
+        print("Handling light control request")
         if not request.scheduled_time:
             # Immediate, indefinite/non-repeating action
             if request.command == "on":
@@ -116,6 +119,7 @@ class ControlManager(MQTTHandler):
             _ = asyncio.create_task(self._schedule_lightbulb(request))
             
     def _handle_water_pump_control_request(self, request: WaterPumpControlRequest) -> None:
+        print("Handling water pump request")
         _ = asyncio.create_task(self._schedule_water_pump(request))
         
     async def _schedule_water_pump(self, request: WaterPumpControlRequest):
