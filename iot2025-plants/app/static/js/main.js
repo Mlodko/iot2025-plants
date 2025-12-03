@@ -44,7 +44,12 @@ async function loadDevices() {
     devices.forEach((d) => {
       const opt = document.createElement("option");
       opt.value = d.id;
+      console.log(d);
+      console.log(`Label from db ${d.label}`);
+      console.log(`Name from db ${d.name}`);
+      console.log(`Device ${d.id}`);
       const displayLabel = d.label || d.name || `Device ${d.id}`;
+      console.log(`Display label ${displayLabel}`);
       opt.textContent = displayLabel;
       if (d.id === selectedId) opt.selected = true;
       select.appendChild(opt);
