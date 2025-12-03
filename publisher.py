@@ -20,36 +20,33 @@ devices = meta.tables.get("devices")
 
 # JSON Schema dla payload_json
 command_schema = {
-    "type": "object",
-    "properties": {
-        "actuator": {"type": "string"},
-        "command": {"type": "string"},
-        "volume": {
-            "type": "integer",
-            "minimum": 1,
-            "title": "Water Volume (ml)"
-        },
-        "scheduled_time": {
-            "$ref": "#/$defs/DurationScheduledTime"
-        }
-    },
-    "required": ["actuator", "command"],
-    "additionalProperties": False,
     "$defs": {
         "DurationScheduledTime": {
-            "type": "object",
-            "title": "DurationScheduledTime",
+            "oneOf": [
+                {
+                    "not": {"required": ["duration"]},
+                    "required": ["end_time"]
+                },
+                {
+                    "not": {"required": ["end_time"]},
+                    "required": ["duration"]
+                },
+                {
+                    "not": {"required": ["end_time", "duration"]},
+                    "required": ["start_time"]
+                }
+            ],
             "properties": {
                 "start_time": {
                     "anyOf": [
-                        {"type": "string", "format": "date-time"},
-                        {"type": "string", "const": "now"}
+                        {"format": "date-time", "type": "string"},
+                        {"const": "now", "type": "string"}
                     ],
                     "title": "Start Time"
                 },
                 "end_time": {
                     "anyOf": [
-                        {"type": "string", "format": "date-time"},
+                        {"format": "date-time", "type": "string"},
                         {"type": "null"}
                     ],
                     "default": None,
@@ -57,7 +54,7 @@ command_schema = {
                 },
                 "duration": {
                     "anyOf": [
-                        {"type": "string", "format": "duration"},
+                        {"format": "duration", "type": "string"},
                         {"type": "null"}
                     ],
                     "default": None,
@@ -65,7 +62,7 @@ command_schema = {
                 },
                 "repeat_interval": {
                     "anyOf": [
-                        {"type": "string", "format": "duration"},
+                        {"format": "duration", "type": "string"},
                         {"type": "null"}
                     ],
                     "default": None,
@@ -73,23 +70,92 @@ command_schema = {
                 }
             },
             "required": ["start_time"],
-            "additionalProperties": False,
-            "oneOf": [
-                {
-                    "required": ["end_time"],
-                    "not": {"required": ["duration"]}
+            "title": "DurationScheduledTime",
+            "type": "object"
+        },
+
+        "ImpulseScheduledTime": {
+            "properties": {
+                "start_time": {
+                    "anyOf": [
+                        {"format": "date-time", "type": "string"},
+                        {"const": "now", "type": "string"}
+                    ],
+                    "title": "Start Time"
                 },
-                {
-                    "required": ["duration"],
-                    "not": {"required": ["end_time"]}
-                },
-                {
-                    "required": ["start_time"],
-                    "not": {"required": ["end_time", "duration"]}
+                "repeat_interval": {
+                    "anyOf": [
+                        {"format": "duration", "type": "string"},
+                        {"type": "null"}
+                    ],
+                    "default": None,
+                    "title": "Repeat Interval"
                 }
-            ]
+            },
+            "required": ["start_time"],
+            "title": "ImpulseScheduledTime",
+            "type": "object"
+        },
+
+        "LightControlRequest": {
+            "properties": {
+                "actuator": {
+                    "const": "light_bulb",
+                    "title": "Actuator",
+                    "type": "string"
+                },
+                "command": {
+                    "enum": ["on", "off"],
+                    "title": "Command",
+                    "type": "string"
+                },
+                "scheduled_time": {
+                    "anyOf": [
+                        {"$ref": "#/$defs/DurationScheduledTime"},
+                        {"type": "null"}
+                    ],
+                    "default": None
+                }
+            },
+            "required": ["actuator", "command"],
+            "title": "LightControlRequest",
+            "type": "object"
+        },
+
+        "WaterPumpControlRequest": {
+            "properties": {
+                "actuator": {
+                    "const": "water_pump",
+                    "title": "Actuator",
+                    "type": "string"
+                },
+                "command": {
+                    "enum": ["on", "off"],
+                    "title": "Command",
+                    "type": "string"
+                },
+                "volume": {
+                    "title": "Volume",
+                    "type": "integer"
+                },
+                "scheduled_time": {
+                    "anyOf": [
+                        {"$ref": "#/$defs/ImpulseScheduledTime"},
+                        {"type": "null"}
+                    ],
+                    "default": None
+                }
+            },
+            "required": ["actuator", "command", "volume"],
+            "title": "WaterPumpControlRequest",
+            "type": "object"
         }
-    }
+    },
+
+    "anyOf": [
+        {"$ref": "#/$defs/LightControlRequest"},
+        {"$ref": "#/$defs/WaterPumpControlRequest"}
+    ]
 }
 
 # Funkcje bazy danych
@@ -119,14 +185,80 @@ def publish_command(cmd_row):
             print(f"[PUBLISHER] Warning: command {cmd_row.id} has no device identifier, skipping.")
             return
 
-        payload = cmd_row.payload_json if cmd_row.payload_json else {}
+        raw_payload = cmd_row.payload_json or {}
+        cmd_name = cmd_row.command or ""
 
-        # Walidacja JSON Schema
+        # Normalizacja payloadu do JSON schema
+        normalized = {}
+
+        # scheduled_time
+        if "scheduled_time" in raw_payload:
+            normalized["scheduled_time"] = raw_payload["scheduled_time"]
+
+        # rozpoznanie actuatora na podstawie nazwy komendy
+        cmd_lower = cmd_name.lower()
+
+        if "light" in cmd_lower:
+            normalized["actuator"] = "light_bulb"
+
+            # command: on/off - bierzemy ze stanu
+            state = raw_payload.get("state", "").lower()
+            if state in ("on", "off"):
+                normalized["command"] = state
+            else:
+                print(f"[PUBLISHER] Command {cmd_row.id} has unknown state='{state}', marking invalid.")
+                with engine.begin() as conn:
+                    conn.execute(
+                        update(commands)
+                        .where(commands.c.id == cmd_row.id)
+                        .values(status="invalid", sent_at=datetime.datetime.now())
+                    )
+                return
+
+        elif "water" in cmd_lower:
+            normalized["actuator"] = "water_pump"
+
+            # watering to zawsze "on" (impuls)
+            normalized["command"] = "on"
+
+            # volume - bierzemy z amount_ml lub volume
+            vol = raw_payload.get("amount_ml") or raw_payload.get("volume")
+            if vol is None:
+                print(f"[PUBLISHER] Command {cmd_row.id} has no volume/amount_ml, marking invalid.")
+                with engine.begin() as conn:
+                    conn.execute(
+                        update(commands)
+                        .where(commands.c.id == cmd_row.id)
+                        .values(status="invalid", sent_at=datetime.datetime.now())
+                    )
+                return
+            try:
+                normalized["volume"] = int(vol)
+            except (TypeError, ValueError):
+                print(f"[PUBLISHER] Command {cmd_row.id} has non-integer volume={vol}, marking invalid.")
+                with engine.begin() as conn:
+                    conn.execute(
+                        update(commands)
+                        .where(commands.c.id == cmd_row.id)
+                        .values(status="invalid", sent_at=datetime.datetime.now())
+                    )
+                return
+
+        else:
+            print(f"[PUBLISHER] Unknown command type '{cmd_name}', cannot infer actuator.")
+            with engine.begin() as conn:
+                conn.execute(
+                    update(commands)
+                    .where(commands.c.id == cmd_row.id)
+                    .values(status="invalid", sent_at=datetime.datetime.now())
+                )
+            return
+
+        # Walidacja
         try:
-            validate(instance=payload, schema=command_schema, cls=Draft7Validator)
+            validate(instance=normalized, schema=command_schema, cls=Draft7Validator)
         except ValidationError as ve:
             print(f"[PUBLISHER] Command {cmd_row.id} failed schema validation: {ve.message}")
-            # Oznacz komendę jako 'invalid' w DB
             with engine.begin() as conn:
                 conn.execute(
                     update(commands)
@@ -136,7 +268,7 @@ def publish_command(cmd_row):
             return
 
         topic = f"/{device_id}/control"
-        mqtt_payload = json.dumps(payload)
+        mqtt_payload = json.dumps(normalized)
 
         print(f"[PUBLISHER] Publishing to {topic}: {mqtt_payload}")
         mqtt_client.publish(topic, mqtt_payload, qos=1)
