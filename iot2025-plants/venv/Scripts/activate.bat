@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\Barte\OneDrive\Pulpit\filipIOT\iot2025-plants\venv
+set VIRTUAL_ENV=C:\Users\Barte\OneDrive\Pulpit\2_12_iot\iot2025-plants\iot2025-plants\venv
 
 if not defined PROMPT set PROMPT=$P$G
 

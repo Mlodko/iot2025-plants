@@ -192,235 +192,295 @@
   <script src="/static/js/paper-dashboard.js"></script>
   <script src="/static/js/bootstrap-checkbox-radio.js"></script>
 
-  <!-- App JS -->
-  <script>
-      // --- USTAWIENIA ---
-      const REFRESH_MS = 10000;       // co ile ms odświeżać
-      const MAX_POINTS = 500;         // maks. ilość punktów na wykres
+ <script>
+  // --- USTAWIENIA ---
+  const REFRESH_MS = 10000;       // co ile ms odświeżać
+  const MAX_POINTS = 500;         // maks. ilość punktów na wykres
+  let currentDeviceId = null;
 
-      // heurystyki do dopasowania typu sensora -> wykres
-      const matchers = {
-          temperature: (t) => /temp|dht.*temp|temperature/i.test(t),
-          humidity: (t) => /hum|dht.*hum|humidity/i.test(t),
-          soil: (t) => /soil|moist/i.test(t),
-          light: (t) => /light|ldr|lux/i.test(t),
-      };
+  // heurystyki do dopasowania typu sensora -> wykres
+  const matchers = {
+      temperature: (t) => /temp|dht.*temp|temperature/i.test(t),
+      humidity:    (t) => /hum|dht.*hum|humidity/i.test(t),
+      soil:        (t) => /soil|moist/i.test(t),
+      light:       (t) => /light|ldr|lux/i.test(t),
+  };
 
-      // pomocnicze funkcje czasu
-      function isoHoursAgo(h) {
-          const d = new Date(Date.now() - h * 3600 * 1000);
-          return d.toISOString();
+  // ---------- ŁADOWANIE URZĄDZEŃ DO DROPDOWNA ----------
+
+  async function loadDevices() {
+    const select = document.getElementById("deviceSelect");
+    if (!select) {
+      console.warn("Brak #deviceSelect w HTML");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/devices");
+      if (!res.ok) {
+        console.error("Nie udało się pobrać /api/devices:", res.status);
+        return;
       }
 
-      function toLocalTimeStr(iso, hours) {
-          const d = new Date(iso);
-          if (hours > 48) {
-              // pokazuj datę (dzień i miesiąc)
-              return d.toLocaleDateString([], {day: '2-digit', month: 'short'});
-          } else {
-              // pokazuj tylko godzinę
-              return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
-          }
+      const devices = await res.json();
+      select.innerHTML = "";
+
+      if (!devices.length) {
+        const opt = document.createElement("option");
+        opt.textContent = "Brak urządzeń";
+        opt.disabled = true;
+        opt.selected = true;
+        select.appendChild(opt);
+        currentDeviceId = null;
+        return;
       }
 
+      // spróbuj użyć ostatnio wybranego urządzenia
+      const savedId = localStorage.getItem("selectedDeviceId");
+      let selectedId = null;
 
-      // rysowanie wykresu Chartist
-      function drawLine(chartSelector, values, labels) {
-          const data = {labels, series: [values]};
-          const options = {
-              fullWidth: true,
-              chartPadding: {right: 20},
-              axisY: {onlyInteger: false},
-              showPoint: false,
-              axisX: {
-                  labelInterpolationFnc: function (value, index) {
-                      return index % Math.ceil(labels.length / 6) === 0 ? value : null;
-                  }
+      if (savedId && devices.some(d => d.id === Number(savedId))) {
+        selectedId = Number(savedId);
+      } else {
+        selectedId = devices[0].id; // pierwsze z listy
+      }
+
+      currentDeviceId = selectedId;
+
+      devices.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d.id;
+        opt.textContent = d.name || `Device ${d.id}`;
+        if (d.id === selectedId) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      // zmiana urządzenia → przeładuj wykresy dla nowego device_id
+      select.addEventListener("change", async () => {
+        currentDeviceId = Number(select.value);
+        localStorage.setItem("selectedDeviceId", String(currentDeviceId));
+        console.log("Wybrane device_id =", currentDeviceId);
+        await redrawAllChartsForCurrentDevice();
+      });
+
+      console.log("Aktualne device_id =", currentDeviceId);
+    } catch (e) {
+      console.error("loadDevices error:", e);
+    }
+  }
+
+  // ---------- POMOCNICZE FUNKCJE CZASU ----------
+
+  function isoHoursAgo(h) {
+      const d = new Date(Date.now() - h * 3600 * 1000);
+      return d.toISOString();
+  }
+
+  function toLocalTimeStr(iso, hours) {
+      const d = new Date(iso);
+      if (hours > 48) {
+          // pokazuj datę (dzień i miesiąc)
+          return d.toLocaleDateString([], {day: '2-digit', month: 'short'});
+      } else {
+          // pokazuj tylko godzinę
+          return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+      }
+  }
+
+  // ---------- RYSOWANIE WYKRESU CHARTIST ----------
+
+  function drawLine(chartSelector, values, labels) {
+      const data = {labels, series: [values]};
+      const options = {
+          fullWidth: true,
+          chartPadding: {right: 20},
+          axisY: {onlyInteger: false},
+          showPoint: false,
+          axisX: {
+              labelInterpolationFnc: function (value, index) {
+                  return index % Math.ceil(labels.length / 6) === 0 ? value : null;
               }
+          }
+      };
+      new Chartist.Line(chartSelector, data, options);
+  }
+
+  // ---------- API: ODCZYTY I SENSORY DLA KONKRETNEGO URZĄDZENIA ----------
+
+  // pobiera odczyty sensora (już dla danego sensor_id)
+  async function fetchReadings(sensorId, hours) {
+      const since = isoHoursAgo(hours);
+      const url = `/api/readings?sensor_id=${sensorId}&since=${encodeURIComponent(since)}&page_size=${MAX_POINTS}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("GET " + url + " -> " + res.status);
+      return res.json();
+  }
+
+  // wybiera sensory po typach DLA AKTUALNEGO URZĄDZENIA
+  async function pickSensors() {
+      if (!currentDeviceId) {
+        console.warn("Brak currentDeviceId, nie mogę dobrać sensorów");
+        return {temperature: null, humidity: null, soil: null, light: null};
+      }
+
+      // UWAGA: zakładam, że backend obsługuje ?device_id=
+      const res = await fetch(`/api/sensors?device_id=${currentDeviceId}&page_size=500`);
+      if (!res.ok) throw new Error("GET /api/sensors -> " + res.status);
+      const sensors = await res.json();
+
+      const out = {temperature: null, humidity: null, soil: null, light: null};
+      for (const s of sensors) {
+          const t = s.type || "";
+          if (!out.temperature && matchers.temperature(t)) out.temperature = s.id;
+          else if (!out.humidity && matchers.humidity(t)) out.humidity = s.id;
+          else if (!out.soil && matchers.soil(t)) out.soil = s.id;
+          else if (!out.light && matchers.light(t)) out.light = s.id;
+      }
+      console.log("Sensory dla device", currentDeviceId, out);
+      return out;
+  }
+
+  // ---------- RYSOWANIE WYKRESÓW ----------
+
+  // rysuje pojedynczy wykres z danym zakresem czasu
+  async function renderSingle(chartId, hours, sensors) {
+      try {
+          const sensorMap = {
+              tempChart: sensors.temperature,
+              humChart:  sensors.humidity,
+              soilChart: sensors.soil,
+              lightChart:sensors.light
           };
-          new Chartist.Line(chartSelector, data, options);
+          const sensorId = sensorMap[chartId];
+          if (!sensorId) return;
+
+          const rows = await fetchReadings(sensorId, hours);
+          const values = rows.map(r => r.value).reverse();
+          const labels = rows.map(r => toLocalTimeStr(r.ts, hours)).reverse();
+          drawLine(`#${chartId}`, values, labels);
+      } catch (e) {
+          console.error("renderSingle error", e);
+      }
+  }
+
+  // rysuje wszystkie wykresy dla bieżącego urządzenia
+  async function renderAll(defaultHours = 24) {
+      const sensors = await pickSensors();
+      const charts = ["tempChart", "humChart", "soilChart", "lightChart"];
+      for (const id of charts) {
+          await renderSingle(id, defaultHours, sensors);
+      }
+  }
+
+  // pomocnicze – przeładuj wszystkie wykresy z aktualnie wybranymi zakresami (przy zmianie urządzenia)
+  async function redrawAllChartsForCurrentDevice() {
+      const sensors = await pickSensors();
+      const activeButtons = document.querySelectorAll('.filter-btns button.active');
+      for (const btn of activeButtons) {
+          const parent = btn.closest('.filter-btns');
+          const chartId = parent.dataset.chart;
+          const hours = parseInt(btn.dataset.hours);
+          await renderSingle(chartId, hours, sensors);
+      }
+  }
+
+  // ---------- WebSocket (opcjonalny live update – zostawiam jak miałeś) ----------
+
+  const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${wsProtocol}://${location.host}/ws`);
+
+  ws.onopen = () => console.log("[WS] Connected");
+  ws.onclose = () => console.log("[WS] Disconnected");
+
+  // Bufory danych dla każdego wykresu (jeśli chcesz live-update)
+  const chartData = {
+      "#tempChart": {values: [], labels: [], chart: null},
+      "#humChart":  {values: [], labels: [], chart: null},
+      "#soilChart": {values: [], labels: [], chart: null},
+      "#lightChart":{values: [], labels: [], chart: null},
+  };
+
+  // Funkcja pomocnicza do aktualizacji wykresu Chartist
+  function appendData(selector, value, label) {
+      const d = chartData[selector];
+      if (!d) return;
+      d.values.push(value);
+      d.labels.push(label);
+      if (d.values.length > 100) { // ogranicz liczbę punktów
+          d.values.shift();
+          d.labels.shift();
+      }
+      if (d.chart) {
+          d.chart.update({labels: d.labels, series: [d.values]});
+      } else {
+          d.chart = new Chartist.Line(selector, {labels: d.labels, series: [d.values]}, {showPoint: false});
+      }
+  }
+
+  ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log("[WS] Update:", data);
+
+      const {sensor_type, value, ts, device_id} = data;
+
+      // jeżeli update nie dotyczy aktualnie wybranego urządzenia – ignorujemy
+      if (device_id && currentDeviceId && Number(device_id) !== Number(currentDeviceId)) {
+        return;
       }
 
-      // pobiera odczyty sensora
-      async function fetchReadings(sensorId, hours) {
-          const since = isoHoursAgo(hours);
-          const url = `/api/readings?sensor_id=${sensorId}&since=${encodeURIComponent(since)}&page_size=${MAX_POINTS}`;
-          const res = await fetch(url);
-          if (!res.ok) throw new Error("GET " + url + " -> " + res.status);
-          return res.json();
+      const label = new Date(ts).toLocaleTimeString();
+
+      if (sensor_type.includes("temp")) {
+          appendData("#tempChart", value, label);
+      } else if (sensor_type.includes("hum")) {
+          appendData("#humChart", value, label);
+      } else if (sensor_type.includes("soil")) {
+          appendData("#soilChart", value, label);
+      } else if (sensor_type.includes("light")) {
+          appendData("#lightChart", value, label);
       }
+  };
 
-      // wybiera sensory po typach
-      async function pickSensors() {
-          const res = await fetch(`/api/sensors?page_size=500`);
-          if (!res.ok) throw new Error("GET /api/sensors -> " + res.status);
-          const sensors = await res.json();
+  // ---------- START ----------
 
-          const out = {temperature: null, humidity: null, soil: null, light: null};
-          for (const s of sensors) {
-              const t = s.type || "";
-              if (!out.temperature && matchers.temperature(t)) out.temperature = s.id;
-              else if (!out.humidity && matchers.humidity(t)) out.humidity = s.id;
-              else if (!out.soil && matchers.soil(t)) out.soil = s.id;
-              else if (!out.light && matchers.light(t)) out.light = s.id;
-          }
-          return out;
-      }
+  document.addEventListener('DOMContentLoaded', async () => {
+      // najpierw załaduj listę urządzeń i ustaw currentDeviceId
+      await loadDevices();
 
-      // rysuje pojedynczy wykres z danym zakresem czasu
-      async function renderSingle(chartId, hours, sensors) {
-          try {
-              const sensorMap = {
-                  tempChart: sensors.temperature,
-                  humChart: sensors.humidity,
-                  soilChart: sensors.soil,
-                  lightChart: sensors.light
-              };
-              const sensorId = sensorMap[chartId];
-              if (!sensorId) return;
+      // obsługa przycisków zakresu czasu
+      document.querySelectorAll('.filter-btns').forEach(group => {
+          const chartId = group.dataset.chart;
 
-              const rows = await fetchReadings(sensorId, hours);
-              const values = rows.map(r => r.value).reverse();
-              const labels = rows.map(r => toLocalTimeStr(r.ts, hours)).reverse();
-              drawLine(`#${chartId}`, values, labels);
-          } catch (e) {
-              console.error("renderSingle error", e);
-          }
-      }
+          group.querySelectorAll('button').forEach(btn => {
+              btn.addEventListener('click', async e => {
+                  const hours = parseInt(btn.dataset.hours);
 
-      // rysuje wszystkie wykresy (używane przy starcie)
-      async function renderAll(defaultHours = 24) {
-          const sensors = await pickSensors();
-          const charts = ["tempChart", "humChart", "soilChart", "lightChart"];
-          for (const id of charts) {
-              await renderSingle(id, defaultHours, sensors);
-          }
-      }
+                  // zmiana aktywnego przycisku
+                  group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                  btn.classList.add('active');
 
-      // Połączenie WebSocket (domyślnie ws://, jeśli https to wss://)
-      const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
-      const ws = new WebSocket(`${wsProtocol}://${location.host}/ws`);
-
-      ws.onopen = () => console.log("[WS] Connected");
-      ws.onclose = () => console.log("[WS] Disconnected");
-
-      ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          console.log("[WS] Update:", data);
-
-          const {sensor_type, value, ts} = data;
-          const label = new Date(ts).toLocaleTimeString();
-
-          // Aktualizuj wykresy na żywo
-          if (sensor_type.includes("temp")) {
-              appendData("#tempChart", value, label);
-          } else if (sensor_type.includes("hum")) {
-              appendData("#humChart", value, label);
-          } else if (sensor_type.includes("soil")) {
-              appendData("#soilChart", value, label);
-          } else if (sensor_type.includes("light")) {
-              appendData("#lightChart", value, label);
-          }
-      };
-
-      // Bufory danych dla każdego wykresu
-      const chartData = {
-          "#tempChart": {values: [], labels: []},
-          "#humChart": {values: [], labels: []},
-          "#soilChart": {values: [], labels: []},
-          "#lightChart": {values: [], labels: []},
-      };
-
-      // Funkcja pomocnicza do aktualizacji wykresu Chartist
-      function appendData(selector, value, label) {
-          const d = chartData[selector];
-          if (!d) return;
-          d.values.push(value);
-          d.labels.push(label);
-          if (d.values.length > 100) { // ogranicz liczbę punktów
-              d.values.shift();
-              d.labels.shift();
-          }
-          if (d.chart) {
-              d.chart.update({labels: d.labels, series: [d.values]});
-          } else {
-              d.chart = new Chartist.Line(selector, {labels: d.labels, series: [d.values]}, {showPoint: false});
-          }
-      }
-
-      // --- URUCHOMIENIE ---
-      document.addEventListener('DOMContentLoaded', async () => {
-          const sensors = await pickSensors(); // zrób jedno zapytanie o sensory
-
-          // dla każdego zestawu przycisków
-          document.querySelectorAll('.filter-btns').forEach(group => {
-              const chartId = group.dataset.chart;
-
-              group.querySelectorAll('button').forEach(btn => {
-                  btn.addEventListener('click', async e => {
-                      const hours = parseInt(btn.dataset.hours);
-
-                      // zmiana aktywnego przycisku
-                      group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-                      btn.classList.add('active');
-
-                      // render tylko tego wykresu
-                      await renderSingle(chartId, hours, sensors);
-                  });
+                  const sensors = await pickSensors();
+                  await renderSingle(chartId, hours, sensors);
               });
           });
-
-          // początkowe rysowanie
-          await renderAll();
-
-          // auto-refresh co REFRESH_MS dla aktualnych zakresów
-          setInterval(async () => {
-              const activeButtons = document.querySelectorAll('.filter-btns button.active');
-              for (const btn of activeButtons) {
-                  const parent = btn.closest('.filter-btns');
-                  const chartId = parent.dataset.chart;
-                  const hours = parseInt(btn.dataset.hours);
-                  await renderSingle(chartId, hours, sensors);
-              }
-          }, REFRESH_MS);
       });
-  </script>
-  <!-- <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    function drawChart(containerSelector, labels, values) {
-      new Chartist.Line(containerSelector, {
-        labels: labels,
-        series: [values]
-      }, {
-        fullWidth: true,
-        chartPadding: { right: 20 },
-        axisY: { onlyInteger: false }
-      });
-    }
 
-    function loadAndRender() {
-      fetch("/api/graphs/latest?points=60")
-        .then(r => r.json())
-        .then(data => {
-          const t = data.temperature || {labels:[], values:[]};
-          const h = data.humidity    || {labels:[], values:[]};
-          const s = data.soil        || {labels:[], values:[]};
-          const l = data.light       || {labels:[], values:[]};
+      // początkowe rysowanie (domyślnie 24h)
+      await renderAll();
 
-          drawChart("#tempChart",  t.labels, t.values);
-          drawChart("#humChart",   h.labels, h.values);
-          drawChart("#soilChart",  s.labels, s.values);
-          drawChart("#lightChart", l.labels, l.values);
-        })
-        .catch(err => console.error("graphs/latest error", err));
-    }
-
-    loadAndRender();
-    // auto-refresh co 10s
-    setInterval(loadAndRender, 10000);
+      // auto-refresh co REFRESH_MS dla aktualnych zakresów i urządzenia
+      setInterval(async () => {
+          const sensors = await pickSensors();
+          const activeButtons = document.querySelectorAll('.filter-btns button.active');
+          for (const btn of activeButtons) {
+              const parent = btn.closest('.filter-btns');
+              const chartId = parent.dataset.chart;
+              const hours = parseInt(btn.dataset.hours);
+              await renderSingle(chartId, hours, sensors);
+          }
+      }, REFRESH_MS);
   });
-  </script>
--->
+</script>
 </body>
 </html>
 

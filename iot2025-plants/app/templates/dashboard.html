@@ -344,36 +344,102 @@
   </div>
 
   <!-- Scripts -->
-  <script>
-      // Funkcja aktualizująca napis przy przesuwaniu suwaka
-      function updateSliderLabel(val) {
-          document.getElementById('manualAmountDisplay').innerText = val;
-      }
-
-      // Funkcja wysyłająca polecenie podlania
-      function triggerManualWater() {
-          var amount = document.getElementById('manualAmountSlider').value;
-
-          // Tutaj dodaj logikę wysyłania do serwera/urządzenia
-          // Np. fetch('/api/water', { method: 'POST', body: amount... })
-
-          console.log("Wysyłam komendę podlania: " + amount + " ml");
-          alert("Podlewam roślinkę dawką: " + amount + " ml!");
-      }
-    //Funkcja zarządzająca czy światło włączone
-    function toggleLight() {
-    var isChecked = document.getElementById('lightSwitch').checked;
-    
-    // Logika wysyłania do serwera/Arduino
-    if(isChecked) {
-        console.log("Light turned ON");
-        // np. fetch('/api/light/on');
-    } else {
-        console.log("Light turned OFF");
-        // np. fetch('/api/light/off');
+<script>
+    // 1) Pobieramy device_id z dropdowna
+    function getSelectedDeviceId() {
+        var sel = document.getElementById('deviceSelect');
+        if (!sel || !sel.value) {
+            alert("Najpierw wybierz urządzenie z listy Device.");
+            return null;
+        }
+        return parseInt(sel.value);
     }
-}
-  </script>
+
+    // 2) Wspólna funkcja do wysyłania komend
+    function sendCommand(commandName, payload) {
+        var deviceId = getSelectedDeviceId();
+        if (deviceId === null || isNaN(deviceId)) {
+            return;
+        }
+
+        fetch("/api/commands", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                device_id: deviceId,
+                command: commandName,
+                payload_json: payload || null
+            })
+        })
+        .then(function (resp) {
+            if (!resp.ok) {
+                throw new Error("HTTP " + resp.status);
+            }
+            return resp.json();
+        })
+        .then(function (data) {
+            console.log("[CMD OK]", data);
+        })
+        .catch(function (err) {
+            console.error("[CMD ERROR]", err);
+            alert("Nie udało się wysłać komendy: " + err);
+        });
+    }
+
+    // === MANUAL WATERING ===
+    function updateSliderLabel(val) {
+        document.getElementById('manualAmountDisplay').innerText = val;
+    }
+
+    function triggerManualWater() {
+        var amount = parseInt(document.getElementById('manualAmountSlider').value, 10);
+        if (isNaN(amount) || amount <= 0) {
+            alert("Nieprawidłowa ilość wody.");
+            return;
+        }
+
+        // TU JEST schema DurationScheduledTime
+        var payload = {
+            mode: "manual",
+            amount_ml: amount,
+            scheduled_time: {
+                // minimalnie wymagane wg schemy: start_time
+                start_time: "now"
+                // jeśli chcesz, możesz potem dodać:
+                // duration: "PT30S",        // 30 sekund
+                // repeat_interval: "PT1H"   // co godzinę
+            }
+        };
+
+        sendCommand("manual_watering", payload);
+
+        console.log("Wysyłam komendę podlania: " + amount + " ml");
+        alert("Podlewam roślinkę dawką: " + amount + " ml!");
+    }
+
+    // === MANUAL LIGHTING ===
+    function toggleLight() {
+        var isChecked = document.getElementById('lightSwitch').checked;
+        var state = isChecked ? "on" : "off";
+
+        console.log("Light turned " + state.toUpperCase());
+
+        var payload = {
+            mode: "manual",
+            state: state,
+            scheduled_time: {
+                start_time: "now"
+                // np. jeśli chcesz wymusić świecenie np. godzinę:
+                // duration: "PT1H"
+            }
+        };
+
+        sendCommand("manual_light", payload);
+    }
+</script>
+
 
 
   <script src="static/js/bootstrap.min.js" type="text/javascript"></script>
