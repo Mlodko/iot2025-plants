@@ -408,11 +408,39 @@ def paginate(query, page: int, page_size: int):
 
 
 # =========================
+# Database Migrations
+# =========================
+def migrate_database():
+    """Add missing columns to existing database tables."""
+    if not settings.db_url.startswith("sqlite"):
+        return  # Only SQLite migrations for now
+    
+    from sqlalchemy import inspect, text
+    
+    try:
+        inspector = inspect(engine)
+        
+        # Check if devices table exists and add label column if missing
+        if "devices" in inspector.get_table_names():
+            columns = [col["name"] for col in inspector.get_columns("devices")]
+            
+            if "label" not in columns:
+                print("[Migration] Adding 'label' column to devices table...")
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE devices ADD COLUMN label TEXT"))
+                    conn.commit()
+                print("[Migration] ✓ Successfully added 'label' column")
+    except Exception as e:
+        print(f"[Migration] Warning: Could not check/migrate database: {e}")
+
+
+# =========================
 # Startup
 # =========================
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    migrate_database()
 
 
 # =========================

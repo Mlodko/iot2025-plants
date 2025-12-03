@@ -33,7 +33,7 @@ async function loadDevices() {
     const savedId = localStorage.getItem("selectedDeviceId");
     let selectedId = null;
 
-    if (savedId && devices.some(d => d.id === Number(savedId))) {
+    if (savedId && devices.some((d) => d.id === Number(savedId))) {
       selectedId = Number(savedId);
     } else {
       selectedId = devices[0].id; // pierwsze z listy
@@ -41,10 +41,11 @@ async function loadDevices() {
 
     currentDeviceId = selectedId;
 
-    devices.forEach(d => {
+    devices.forEach((d) => {
       const opt = document.createElement("option");
       opt.value = d.id;
-      opt.textContent = d.name || `Device ${d.id}`;
+      const displayLabel = d.label || d.name || `Device ${d.id}`;
+      opt.textContent = displayLabel;
       if (d.id === selectedId) opt.selected = true;
       select.appendChild(opt);
     });
@@ -71,17 +72,20 @@ const manualSwitch = document.getElementById("manualSwitch");
 // wysyłanie komendy do backendu (na razie device_id = 1)
 async function sendAutomationCommand(kind) {
   if (!currentDeviceId) {
-    alert("Brak wybranego urządzenia (lista devices jest pusta albo się nie załadowała).");
+    alert(
+      "Brak wybranego urządzenia (lista devices jest pusta albo się nie załadowała)."
+    );
     return;
   }
 
   const deviceId = currentDeviceId;
 
-  const thresholdInputId = kind === "watering" ? "wateringThreshold" : "lightingThreshold";
-  const switchId        = kind === "watering" ? "autoSwitch"        : "manualSwitch";
+  const thresholdInputId =
+    kind === "watering" ? "wateringThreshold" : "lightingThreshold";
+  const switchId = kind === "watering" ? "autoSwitch" : "manualSwitch";
 
   const thresholdEl = document.getElementById(thresholdInputId);
-  const switchEl    = document.getElementById(switchId);
+  const switchEl = document.getElementById(switchId);
 
   if (!thresholdEl || !switchEl) {
     console.warn("Brak elementów progów / switchy w DOM");
@@ -89,7 +93,7 @@ async function sendAutomationCommand(kind) {
   }
 
   const threshold = Number(thresholdEl.value || 0);
-  const enabled   = switchEl.checked;
+  const enabled = switchEl.checked;
 
   const body = {
     device_id: deviceId,
@@ -97,16 +101,16 @@ async function sendAutomationCommand(kind) {
     payload_json: {
       threshold: threshold,
       enabled: enabled,
-      type: kind
+      type: kind,
     },
-    scheduled_at: null
+    scheduled_at: null,
   };
 
   try {
     const res = await fetch("/api/commands", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
@@ -122,7 +126,6 @@ async function sendAutomationCommand(kind) {
     alert("Błąd połączenia z API.");
   }
 }
-
 
 // zapisywanie progów w localStorage + wysłanie komendy
 function saveThreshold(type, value) {
@@ -165,7 +168,9 @@ function manual() {
 
 async function getData() {
   try {
-    const res = await fetch(`/api/graphs/latest?device_id=${currentDeviceId}&points=1`);
+    const res = await fetch(
+      `/api/graphs/latest?device_id=${currentDeviceId}&points=1`
+    );
     if (!res.ok) {
       console.warn("getData status:", res.status);
       return;
@@ -173,9 +178,9 @@ async function getData() {
     const data = await res.json();
 
     const t = data.temperature?.values || [];
-    const h = data.humidity?.values   || [];
-    const s = data.soil?.values       || [];
-    const l = data.light?.values      || [];
+    const h = data.humidity?.values || [];
+    const s = data.soil?.values || [];
+    const l = data.light?.values || [];
 
     if (t.length) $("#tempValue").html(t[t.length - 1].toFixed(1));
     if (h.length) $("#humValue").html(h[h.length - 1].toFixed(1));
@@ -189,7 +194,9 @@ async function getData() {
 /////////////////////// Get Chart data (wykresy) ///////////////////////
 async function getChartData() {
   try {
-    const res = await fetch(`/api/graphs/latest?device_id=${currentDeviceId}&points=50`);
+    const res = await fetch(
+      `/api/graphs/latest?device_id=${currentDeviceId}&points=50`
+    );
     if (!res.ok) {
       console.warn("getChartData status:", res.status);
       return;
@@ -197,15 +204,15 @@ async function getChartData() {
     const data = await res.json();
 
     const tempArr = data.temperature?.values || [];
-    const humArr  = data.humidity?.values    || [];
-    const soilArr = data.soil?.values        || [];
-    const lightArr= data.light?.values       || [];
+    const humArr = data.humidity?.values || [];
+    const soilArr = data.soil?.values || [];
+    const lightArr = data.light?.values || [];
     const timeArr = data.temperature?.labels || [];
 
     createGraph(tempArr, timeArr, "#tempChart");
-    createGraph(humArr,  timeArr, "#humChart");
+    createGraph(humArr, timeArr, "#humChart");
     createGraph(soilArr, timeArr, "#soilChart");
-    createGraph(lightArr,timeArr, "#lightChart");
+    createGraph(lightArr, timeArr, "#lightChart");
   } catch (e) {
     console.error("getChartData error:", e);
   }
@@ -217,20 +224,20 @@ function createGraph(data, newTime, newChart) {
 
   let chartData = {
     labels: newTime,
-    series: [data]
+    series: [data],
   };
 
   let options = {
     axisY: {
-      onlyInteger: false
+      onlyInteger: false,
     },
     fullWidth: true,
     width: "100%",
     height: "100%",
     lineSmooth: true,
     chartPadding: {
-      right: 50
-    }
+      right: 50,
+    },
   };
 
   new Chartist.Line(newChart, chartData, options);
