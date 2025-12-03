@@ -185,14 +185,83 @@ def publish_command(cmd_row):
             print(f"[PUBLISHER] Warning: command {cmd_row.id} has no device identifier, skipping.")
             return
 
-        payload = cmd_row.payload_json if cmd_row.payload_json else {}
+        raw_payload = cmd_row.payload_json or {}
+        cmd_name = cmd_row.command or ""
 
-        # Walidacja JSON Schema
+        # Normalizacja payloadu do JSOn schema
+        normalized = {}
+
+        # scheduled_time
+        if "scheduled_time" in raw_payload:
+            normalized["scheduled_time"] = raw_payload["scheduled_time"]
+
+        # rozpoznanie actuatora na podstawie nazwy komendy
+        # manual_light, set_lightning -> light_bulb
+        # manual_watering, set_watering -> water_pump
+        cmd_lower = cmd_name.lower()
+
+        if "light" in cmd_lower:
+            normalized["actuator"] = "light_bulb"
+
+            # command: on/off - bierzemy ze stanu
+           state = raw_payload.get("state", "").lower()
+            if state in ("on", "off"):
+                normalized["command"] = state
+            else:
+                print(f"[PUBLISHER] Command {cmd_row.id} has unknown state='{state}', marking invalid.")
+                with engine.begin() as conn:
+                    conn.execute(
+                        update(commands)
+                        .where(commands.c.id == cmd_row.id)
+                        .values(status="invalid", sent_at=datetime.datetime.now())
+                    )
+                return
+
+        elif "water" in cmd_lower:
+            normalized["actuator"] = "water_pump"
+
+            # watering to zawsze "on" (impuls)
+            normalized["command"] = "on"
+
+            # volume - bierzemy z amount_ml lub volume
+            vol = raw_payload.get("amount_ml") or raw_payload.get("volume")
+            if vol is None:
+                print(f"[PUBLISHER] Command {cmd_row.id} has no volume/amount_ml, marking invalid.")
+                with engine.begin() as conn:
+                    conn.execute(
+                        update(commands)
+                        .where(commands.c.id == cmd_row.id)
+                        .values(status="invalid", sent_at=datetime.datetime.now())
+                    )
+                return
+            try:
+                normalized["volume"] = int(vol)
+            except (TypeError, ValueError):
+                print(f"[PUBLISHER] Command {cmd_row.id} has non-integer volume={vol}, marking invalid.")
+                with engine.begin() as conn:
+                    conn.execute(
+                        update(commands)
+                        .where(commands.c.id == cmd_row.id)
+                        .values(status="invalid", sent_at=datetime.datetime.now())
+                    )
+                return
+
+        else:
+            print(f"[PUBLISHER] Unknown command type '{cmd_name}', cannot infer actuator.")
+            with engine.begin() as conn:
+                conn.execute(
+                    update(commands)
+                    .where(commands.c.id == cmd_row.id)
+                    .values(status="invalid", sent_at=datetime.datetime.now())
+                )
+            return
+
+        # Walidacja
         try:
-            validate(instance=payload, schema=command_schema, cls=Draft7Validator)
+            validate(instance=normalized, schema=command_schema, cls=Draft7Validator)
         except ValidationError as ve:
             print(f"[PUBLISHER] Command {cmd_row.id} failed schema validation: {ve.message}")
-            # Oznacz komendę jako 'invalid' w DB
+            # Oznaczamy komendę jako 'invalid' w DB
             with engine.begin() as conn:
                 conn.execute(
                     update(commands)
@@ -202,7 +271,7 @@ def publish_command(cmd_row):
             return
 
         topic = f"/{device_id}/control"
-        mqtt_payload = json.dumps(payload)
+        mqtt_payload = json.dumps(normalized)
 
         print(f"[PUBLISHER] Publishing to {topic}: {mqtt_payload}")
         mqtt_client.publish(topic, mqtt_payload, qos=1)
