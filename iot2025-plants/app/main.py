@@ -128,6 +128,16 @@ class CommandResult(Base):
 # =========================
 class DeviceCreate(BaseModel):
     name: str
+    label: Optional[str] = None
+    ip: Optional[str] = None
+    mac: Optional[str] = None
+    software_version: Optional[str] = None
+    config_json: Optional[Dict[str, Any]] = None
+
+
+class DeviceUpdate(BaseModel):
+    name: Optional[str] = None
+    label: Optional[str] = None
     ip: Optional[str] = None
     mac: Optional[str] = None
     software_version: Optional[str] = None
@@ -534,12 +544,19 @@ def list_devices(
 @app.patch("/api/devices/{device_id}", response_model=DeviceRead)
 def update_device(
     device_id: int,
-    payload: DeviceCreate,
+    payload: DeviceUpdate,
     db: Session = Depends(get_db),
 ):
     dev = db.get(Device, device_id)
     if not dev:
         raise HTTPException(status_code=404, detail="Device not found")
+    
+    # Check if name is being changed and if it would conflict
+    if payload.name is not None and payload.name != dev.name:
+        if db.query(Device).filter(Device.name == payload.name, Device.id != device_id).first():
+            raise HTTPException(status_code=400, detail="Device name already exists")
+    
+    # Update only provided fields
     for k, v in payload.dict(exclude_unset=True).items():
         setattr(dev, k, v)
     db.commit()
