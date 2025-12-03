@@ -188,7 +188,7 @@ def publish_command(cmd_row):
         raw_payload = cmd_row.payload_json or {}
         cmd_name = cmd_row.command or ""
 
-        # Normalizacja payloadu do JSOn schema
+        # Normalizacja payloadu do JSON schema
         normalized = {}
 
         # scheduled_time
@@ -196,15 +196,13 @@ def publish_command(cmd_row):
             normalized["scheduled_time"] = raw_payload["scheduled_time"]
 
         # rozpoznanie actuatora na podstawie nazwy komendy
-        # manual_light, set_lightning -> light_bulb
-        # manual_watering, set_watering -> water_pump
         cmd_lower = cmd_name.lower()
 
         if "light" in cmd_lower:
             normalized["actuator"] = "light_bulb"
 
             # command: on/off - bierzemy ze stanu
-           state = raw_payload.get("state", "").lower()
+            state = raw_payload.get("state", "").lower()
             if state in ("on", "off"):
                 normalized["command"] = state
             else:
@@ -261,7 +259,6 @@ def publish_command(cmd_row):
             validate(instance=normalized, schema=command_schema, cls=Draft7Validator)
         except ValidationError as ve:
             print(f"[PUBLISHER] Command {cmd_row.id} failed schema validation: {ve.message}")
-            # Oznaczamy komendę jako 'invalid' w DB
             with engine.begin() as conn:
                 conn.execute(
                     update(commands)
