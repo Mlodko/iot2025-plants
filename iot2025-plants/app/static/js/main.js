@@ -1,5 +1,6 @@
 ///////////////////////// Automated Watering & Lighting /////////////////////////
 let currentDeviceId = null;
+let deviceSelectListenerAdded = false;
 
 // Załaduj listę urządzeń z backendu i wypełnij dropdown
 async function loadDevices() {
@@ -17,6 +18,10 @@ async function loadDevices() {
     }
 
     const devices = await res.json();
+
+    // Zapisz aktualnie wybrany device_id przed czyszczeniem
+    const currentlySelectedId = currentDeviceId;
+
     select.innerHTML = "";
 
     if (!devices.length) {
@@ -29,11 +34,16 @@ async function loadDevices() {
       return;
     }
 
-    // Spróbuj użyć ostatnio wybranego urządzenia
+    // Spróbuj użyć ostatnio wybranego urządzenia lub aktualnie wybranego
     const savedId = localStorage.getItem("selectedDeviceId");
     let selectedId = null;
 
-    if (savedId && devices.some((d) => d.id === Number(savedId))) {
+    if (
+      currentlySelectedId &&
+      devices.some((d) => d.id === Number(currentlySelectedId))
+    ) {
+      selectedId = Number(currentlySelectedId);
+    } else if (savedId && devices.some((d) => d.id === Number(savedId))) {
       selectedId = Number(savedId);
     } else {
       selectedId = devices[0].id; // pierwsze z listy
@@ -44,25 +54,25 @@ async function loadDevices() {
     devices.forEach((d) => {
       const opt = document.createElement("option");
       opt.value = d.id;
-      console.log(d);
-      console.log(`Label from db ${d.label}`);
-      console.log(`Name from db ${d.name}`);
-      console.log(`Device ${d.id}`);
+      // Użyj label jeśli istnieje, w przeciwnym razie name, w przeciwnym razie fallback
       const displayLabel = d.label || d.name || `Device ${d.id}`;
-      console.log(`Display label ${displayLabel}`);
       opt.textContent = displayLabel;
       if (d.id === selectedId) opt.selected = true;
       select.appendChild(opt);
     });
 
-    select.addEventListener("change", () => {
-      currentDeviceId = Number(select.value);
-      localStorage.setItem("selectedDeviceId", String(currentDeviceId));
-      console.log("Wybrane device_id =", currentDeviceId);
+    // Dodaj event listener tylko raz
+    if (!deviceSelectListenerAdded) {
+      select.addEventListener("change", () => {
+        currentDeviceId = Number(select.value);
+        localStorage.setItem("selectedDeviceId", String(currentDeviceId));
+        console.log("Wybrane device_id =", currentDeviceId);
 
-      getData();
-      getChartData();
-    });
+        getData();
+        getChartData();
+      });
+      deviceSelectListenerAdded = true;
+    }
 
     console.log("Aktualne device_id =", currentDeviceId);
   } catch (e) {
@@ -249,14 +259,26 @@ function createGraph(data, newTime, newChart) {
 }
 
 /////////////////////// run functions ///////////////////////
-$(document).ready(function () {
-  loadDevices();
+$(document).ready(async function () {
+  await loadDevices();
   restoreThresholds();
-  getData();
-  getChartData();
 
-  setInterval(function () {
+  // Poczekaj aż device zostanie wybrany przed pobraniem danych
+  if (currentDeviceId) {
     getData();
     getChartData();
+  }
+
+  // Odśwież dane co 5 sekund
+  setInterval(function () {
+    if (currentDeviceId) {
+      getData();
+      getChartData();
+    }
   }, 5000);
+
+  // Odśwież listę urządzeń co 30 sekund (aby zobaczyć zmiany w labelach)
+  setInterval(async function () {
+    await loadDevices();
+  }, 30000);
 });
